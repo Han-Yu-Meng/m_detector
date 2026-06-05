@@ -107,8 +107,8 @@ void  DynObjFilter::init(ros::NodeHandle& nh)
     nh.param<float>("dyn_obj/cluster_Voxel_revolusion", Cluster.Voxel_revolusion, 0.3f);
     nh.param<bool>("dyn_obj/cluster_debug_en", Cluster.debug_en, false);
     nh.param<string>("dyn_obj/cluster_out_file", Cluster.out_file, "");
-    nh.param<float>("dyn_obj/ver_resolution_max", hor_resolution_max, 0.0025f);
-    nh.param<float>("dyn_obj/hor_resolution_max", ver_resolution_max, 0.0025f);
+    nh.param<float>("dyn_obj/hor_resolution_max", hor_resolution_max, 0.0025f);
+    nh.param<float>("dyn_obj/ver_resolution_max", ver_resolution_max, 0.0025f);
     nh.param<float>("dyn_obj/buffer_dur", buffer_dur, 0.1f);
     nh.param<int>("dyn_obj/point_index", point_index, 0);
     nh.param<string>("dyn_obj/frame_id", frame_id, "camera_init");
@@ -343,7 +343,7 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
 	int num_1 = 0, num_2 = 0, num_3 = 0, num_inval = 0, num_neag = 0; 
     double clus_before = omp_get_wtime(); //rec computation time
     std_msgs::Header header_clus;
-    header_clus.stamp = ros::Time().fromSec(scan_end_time);
+    header_clus.stamp = rclcpp::Time().fromSec(scan_end_time);
     header_clus.frame_id = frame_id;
     if (cluster_coupled || cluster_future)
     {
@@ -1832,20 +1832,20 @@ void DynObjFilter::publish_dyn(const ros::Publisher & pub_point_out, const ros::
     case1_num = 0;
     case2_num = 0;
     case3_num = 0;
-    sensor_msgs::PointCloud2 laserCloudFullRes3;
+    sensor_msgs::msg::PointCloud2 laserCloudFullRes3;
     pcl::toROSMsg(*laserCloudDynObj_world, laserCloudFullRes3);
-    laserCloudFullRes3.header.stamp = ros::Time().fromSec(scan_end_time);
+    laserCloudFullRes3.header.stamp = rclcpp::Time().fromSec(scan_end_time);
     laserCloudFullRes3.header.frame_id = frame_id;
     pub_point_out.publish(laserCloudFullRes3);
     if(cluster_coupled || cluster_future)
     {
-        sensor_msgs::PointCloud2 laserCloudFullRes4;
+        sensor_msgs::msg::PointCloud2 laserCloudFullRes4;
         pcl::toROSMsg(*laserCloudDynObj_clus, laserCloudFullRes4);
-        laserCloudFullRes4.header.stamp = ros::Time().fromSec(scan_end_time);
+        laserCloudFullRes4.header.stamp = rclcpp::Time().fromSec(scan_end_time);
         laserCloudFullRes4.header.frame_id = frame_id;
         pub_frame_out.publish(laserCloudFullRes4);
     }
-    sensor_msgs::PointCloud2 laserCloudFullRes2;
+    sensor_msgs::msg::PointCloud2 laserCloudFullRes2;
     PointCloudXYZI::Ptr laserCloudSteadObj_pub(new PointCloudXYZI);
     if(cluster_coupled)
     {
@@ -1897,7 +1897,7 @@ void DynObjFilter::publish_dyn(const ros::Publisher & pub_point_out, const ros::
         }
         pcl::toROSMsg(*laserCloudSteadObj_pub, laserCloudFullRes2);
     }
-    laserCloudFullRes2.header.stamp = ros::Time().fromSec(scan_end_time);
+    laserCloudFullRes2.header.stamp = rclcpp::Time().fromSec(scan_end_time);
     laserCloudFullRes2.header.frame_id = frame_id;
     pub_steady_points.publish(laserCloudFullRes2);
 }

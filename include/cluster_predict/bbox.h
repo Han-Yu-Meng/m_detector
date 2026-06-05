@@ -5,7 +5,7 @@
 #include <Eigen/Geometry>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/msg/marker.hpp>
 
 struct bbox_s
 {
@@ -30,7 +30,7 @@ struct bbox_s
         return *this;
     }
 
-    void draw_bbox(visualization_msgs::Marker &cluster)
+    void draw_bbox(visualization_msgs::msg::Marker &cluster)
     {   
         Eigen::Matrix<float, 8, 3> corners;
         corners.row(0) << low_point[0], low_point[1], low_point[2];

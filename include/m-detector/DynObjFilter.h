@@ -4,19 +4,19 @@
 #include <omp.h>
 #include <mutex>
 #include <math.h>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 // #include <so3_math.h>
 #include <Eigen/Core>
 #include <types.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
-#include <nav_msgs/Path.h>
+#include <nav_msgs/msg/path.hpp>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <nav_msgs/Odometry.h>
+#include <nav_msgs/msg/odometry.hpp>
 #include <sensor_msgs/CompressedImage.h>
 #include <pcl/filters/voxel_grid.h>
-#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <pcl_conversions/pcl_conversions.h>
 #include <Eigen/LU>
 #include <m-detector/DynObjCluster.h>
@@ -75,7 +75,7 @@ struct point_soph
     array<float, MAP_NUM> last_depth_interps = {};
     array<V3F, HASH_PRIM> last_vecs = {};
     array<Vector3i, HASH_PRIM> last_positions = {};   
-    typedef boost::shared_ptr<point_soph> Ptr;
+    typedef std::shared_ptr<point_soph> Ptr;
     point_soph(V3D & point, float & hor_resolution_max, float & ver_resolution_max)
     {
         vec(2)     = float(point.norm());
@@ -217,7 +217,7 @@ public:
     int*             max_depth_index_all = nullptr;
     int*             min_depth_index_all = nullptr;
     std::vector<int> index_vector;
-    typedef boost::shared_ptr<DepthMap> Ptr;
+    typedef std::shared_ptr<DepthMap> Ptr;
 
     DepthMap()
     {   

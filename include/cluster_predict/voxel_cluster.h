@@ -1,7 +1,7 @@
 #ifndef VOXEL_CLUSTER_H
 #define VOXEL_CLUSTER_H
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <Eigen/Core>
 #include <unordered_map>
 #include <unordered_set>
@@ -22,11 +22,11 @@ public:
 typedef pcl::PointXYZINormal PointType;
 
 struct Point_Cloud {
-    typedef boost::shared_ptr<Point_Cloud> Ptr;
+    typedef std::shared_ptr<Point_Cloud> Ptr;
     int bbox_index{-1};
     int points_num{0};
     pcl::PointCloud<PointType>::Ptr cloud;
-    boost::shared_ptr<std::vector<int>> cloud_index;
+    std::shared_ptr<std::vector<int>> cloud_index;
     Point_Cloud(PointType point, int index)
     {
         this->cloud->points.push_back(point);

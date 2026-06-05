@@ -1,0 +1,23 @@
+name: "m_detector"
+version: "0.1.0"
+description: "M-detector is a moving event detection package, which determines if a point from LiDAR is moving immediately after its arrival, resulting in a point-by-point detection with a latency of just several microseconds. M-detector is designed based on occlusion principles and can be used in different environments with various types of LiDAR sensors."
+maintainers:
+  - name: "HuajieWu"
+    email: "wu2020@connect.hku.hk"
+  - name: "YihangLi"
+    email: "yhangli@connect.hku.hk"
+depends:
+  Eigen3: "3.4.0"
+  OpenMP: "system"
+  
+  geometry_msgs: "system"
+  nav_msgs: "system"
+  sensor_msgs: "system"
+
+  PCL: "system"
+  pcl_conversions: "system"
+  OpenCV: "system"
+  TBB: "system"
+
+licenses:
+  - "GNUv2"
