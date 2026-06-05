@@ -8,6 +8,8 @@ find_package(OpenMP  REQUIRED)
 find_package(TBB     REQUIRED)
 find_package(OpenCV  REQUIRED)
 
+add_compile_options(-Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable)
+
 fins_add_node(${PROJECT_NAME}
   src/dynfilter_with_odom.cpp
   src/DynObjFilter.cpp

@@ -421,7 +421,7 @@ public:
     float  k_depth_max_thr1 = 0.0, d_depth_max_thr1 = 50, k_depth_max_thr2 = 0.0, d_depth_max_thr2 = 50, k_depth_max_thr3 = 0.0, d_depth_max_thr3 = 50;
 
     double frame_dur = 0.1, buffer_delay = 0.1, depth_map_dur = 0.2f;
-    int    buffer_size = 300000, max_depth_map_num = 5;
+    size_t    buffer_size = 300000, max_depth_map_num = 5;
     int    hor_num = MAX_1D, ver_num = MAX_1D_HALF;
     float  hor_resolution_max = 0.02f, ver_resolution_max = 0.02f;
 
@@ -438,7 +438,7 @@ public:
     float  fov_up = 2.0, fov_down = -23, fov_cut = -20, fov_left = 180, fov_right = -180;
     float  blind_dis = 0.3;
     int    pixel_fov_up, pixel_fov_down, pixel_fov_cut, pixel_fov_left, pixel_fov_right;
-    int    max_pixel_points = 50;
+    size_t    max_pixel_points = 50;
     bool   stop_object_detect = false;
     point_soph::Ptr last_point_pointer = nullptr;
     string frame_id = "camera_init";

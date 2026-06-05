@@ -78,7 +78,7 @@ void DynObjCluster::GetClusterResult_voxel(pcl::PointCloud<PointType>::Ptr point
     cluster.extract(voxel_clusters);
 }
 
-void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::msg::Header current_header, bbox_t &bbox, double delta,
+void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::msg::Header current_header, bbox_t &bbox, double /*delta*/,\
                                            std::vector<std::vector<int>> &voxel_clusters, const pcl::PointCloud<PointType> &raw_point, std::unordered_set<int> &used_map_set)
 {
     int j = 0;
@@ -91,7 +91,7 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
     Eigen::Matrix3f R = odom_rot.cast<float>();
     Eigen::Vector3f world_z = R.col(2);
     int Grid_size_1d = 3;
-    int Grid_size = pow(Grid_size_1d, 3);
+    // int Grid_size = pow(Grid_size_1d, 3);
 
     for (auto it = voxel_clusters.begin(); it != voxel_clusters.end(); it++, j++)
     {
@@ -170,9 +170,9 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
         }
     }
 
-    double hash_newtime = 0.0;
+    // double hash_newtime = 0.0;
     std::vector<int> index_bbox(bbox.Center.size());
-    for (int i = 0; i < bbox.Center.size(); i++)
+    for (size_t i = 0; i < bbox.Center.size(); i++)
     {
         index_bbox[i] = i;
     }
@@ -231,13 +231,13 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
             }
         } });
 
-    for (int bbox_i = 0; bbox_i < bbox.Center.size(); bbox_i++)
+    for (size_t bbox_i = 0; bbox_i < bbox.Center.size(); bbox_i++)
     {
         used_map_set.merge(used_map_set_vec[bbox_i]);
     }
 
 
-    for (int ite = 0; ite < raw_point.size(); ite++)
+    for (size_t ite = 0; ite < raw_point.size(); ite++)
     {
         if (dyn_tag[ite] == -1)
             continue;
@@ -251,9 +251,9 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
             bbox.Ground_points[umap_ground[voxel].bbox_index].push_back(raw_point[ite]);
             if (umap_ground[voxel].points_num == 0)
             {
-                umap_ground[voxel].cloud = new pcl::PointCloud<PointType>(); // 优化为原生指针创建
+                umap_ground[voxel].cloud = std::make_shared<pcl::PointCloud<PointType>>(); // 优化为原生指针创建
                 umap_ground[voxel].cloud->reserve(5);
-                umap_ground[voxel].cloud_index = new std::vector<int>();    // 优化为原生指针创建
+                umap_ground[voxel].cloud_index = std::make_unique<std::vector<int>>();    // 优化为原生指针创建
                 umap_ground[voxel].cloud_index->reserve(5);
                 umap_ground[voxel].cloud->push_back(raw_point[ite]);
                 umap_ground[voxel].cloud_index->push_back(ite);
@@ -283,7 +283,7 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
             bbox.Point_indices[umap_insidebox[voxel].bbox_index].push_back(ite);
             if (umap_insidebox[voxel].points_num == 0)
             {
-                umap_insidebox[voxel].cloud = new pcl::PointCloud<PointType>(); // 优化为原生指针创建
+                umap_insidebox[voxel].cloud = std::make_shared<pcl::PointCloud<PointType>>(); // 优化为原生指针创建
                 umap_insidebox[voxel].cloud->reserve(5);
                 umap_insidebox[voxel].cloud->push_back(tmp);
             }
@@ -299,21 +299,21 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
             dyn_tag[ite] = 0;
         }
     }
-    int k = 0;
+    // int k = 0;
     std::vector<double> ground_estimate_total_time(index_bbox.size(), 0.0);
     std::vector<double> region_growth_time(index_bbox.size(), 0.0);
     std::for_each(std::execution::par, index_bbox.begin(), index_bbox.end(), [&](const int &k)
     {   
         geometry_msgs::msg::PoseWithCovarianceStamped center = bbox.Center[k];
-        float x_size = center.pose.covariance[3*6+3];
-        float y_size = center.pose.covariance[4*6+4];
-        float z_size = center.pose.covariance[5*6+5];
-        float x_min = center.pose.covariance[3*6+2];
-        float y_min = center.pose.covariance[4*6+3];
-        float z_min = center.pose.covariance[5*6+4];
-        float x_max = center.pose.covariance[2*6+3];
-        float y_max = center.pose.covariance[3*6+4];
-        float z_max = center.pose.covariance[4*6+5];
+        // float x_size = center.pose.covariance[3*6+3];
+        // float y_size = center.pose.covariance[4*6+4];
+        // float z_size = center.pose.covariance[5*6+5];
+        // float x_min = center.pose.covariance[3*6+2];
+        // float y_min = center.pose.covariance[4*6+3];
+        // float z_min = center.pose.covariance[5*6+4];
+        // float x_max = center.pose.covariance[2*6+3];
+        // float y_max = center.pose.covariance[3*6+4];
+        // float z_max = center.pose.covariance[4*6+5];
 
         Eigen::Vector3f ground_norm(0.0, 0.0, 0.0);
         Eigen::Vector4f ground_plane;
@@ -328,7 +328,7 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
         isolate_remove(bbox.Point_cloud[k], bbox.Point_indices[k], dyn_tag);
         if ((float)bbox.umap_points_num[k] / (float)bbox.Point_cloud[k].size() < thrustable_thresold) // not trustable
         {   
-            for (int i = 0; i < bbox.Point_indices[k].size(); i++)
+            for (size_t i = 0; i < bbox.Point_indices[k].size(); i++)
             {
                 dyn_tag[bbox.Point_indices[k][i]] = 0;
             }
@@ -340,7 +340,7 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
         } });
     double total_ground_estimate_total_time=0.0;
     double total_region_growth_time=0.0;
-    for(int i = 0; i< index_bbox.size(); i++)
+    for(size_t i = 0; i< index_bbox.size(); i++)
     {
         total_ground_estimate_total_time += ground_estimate_total_time[i];
         total_region_growth_time += region_growth_time[i];
@@ -355,7 +355,7 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
 
 bool DynObjCluster::ground_estimate(const pcl::PointCloud<PointType> &ground_pcl, const Eigen::Vector3f &world_z, Eigen::Vector3f &ground_norm, Eigen::Vector4f &ground_plane, pcl::PointCloud<PointType> &true_ground, std::unordered_set<int> &extend_pixels)
 {
-    if (!ground_pcl.size() > 0)
+    if (ground_pcl.empty())
         return false;
     int BNUM = std::max(4, (int)ground_pcl.size() / 100);
     const float thershold = 0.10f;
@@ -364,10 +364,10 @@ bool DynObjCluster::ground_estimate(const pcl::PointCloud<PointType> &ground_pcl
     int max_count = 0;
     Eigen::Vector3f max_normvec(0, 0, 0);
     pcl::PointCloud<PointType> max_points;
-    for (int i = 0; i < ground_pcl.size(); i++)
+    for (size_t i = 0; i < ground_pcl.size(); i++)
     {
         split_pcl.push_back(ground_pcl[i]);
-        if (split_pcl.size() == BNUM)
+        if (split_pcl.size() == static_cast<size_t>(BNUM))
         {
             Eigen::Vector4f plane;
             if (esti_plane(plane, split_pcl) && plane[3] < thershold)
@@ -377,7 +377,7 @@ bool DynObjCluster::ground_estimate(const pcl::PointCloud<PointType> &ground_pcl
                 {
                     int count = 0;
                     pcl::PointCloud<PointType> tmp_points;
-                    for (int j = 0; j < ground_pcl.size(); j++)
+                    for (size_t j = 0; j < ground_pcl.size(); j++)
                     {
                         Eigen::Vector3f point;
                         point[0] = ground_pcl[j].x;

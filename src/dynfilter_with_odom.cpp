@@ -46,6 +46,8 @@ public:
     }
 
     void initialize() override {
+        pcl::console::setVerbosityLevel(pcl::console::L_ERROR);
+
         dyn_obj_filt_ = make_shared<DynObjFilter>();
         dyn_obj_filt_->init();
 

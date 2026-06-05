@@ -27,12 +27,12 @@ struct Point_Cloud {
     int bbox_index{-1};
     int points_num{0};
     
-    pcl::PointCloud<PointType>* cloud{nullptr};
-    std::vector<int>* cloud_index{nullptr};
+    pcl::PointCloud<PointType>::Ptr cloud{nullptr};
+    std::unique_ptr<std::vector<int>> cloud_index{nullptr};
 
     Point_Cloud(PointType point, int index)
     {
-        this->cloud = new pcl::PointCloud<PointType>();
+        this->cloud.reset(new pcl::PointCloud<PointType>());
         this->cloud->points.push_back(point);
         this->bbox_index = index;
     }
@@ -42,26 +42,25 @@ struct Point_Cloud {
         this->bbox_index = index;
     }
     
-    Point_Cloud() = default; // 显式默认，确保为 trivial
+    Point_Cloud() = default;
 
     Point_Cloud(PointType point)
     {   
-        this->cloud = new pcl::PointCloud<PointType>();
+        this->cloud.reset(new pcl::PointCloud<PointType>());
         this->cloud->reserve(5);
         this->cloud->points.push_back(point);
     }
 
-    ~Point_Cloud() = default; // 显式默认，防止 resize 时单线程析构带来的性能损耗
+    // No need for a custom destructor; smart pointers handle deallocation
+    // No need for custom copy/move constructors/assignment operators; smart pointers handle them
 
     void reset()
     {   
         if (cloud) {
-            delete cloud;
-            cloud = nullptr;
+            cloud.reset(); // Release ownership and delete managed object
         }
         if (cloud_index) {
-            delete cloud_index;
-            cloud_index = nullptr;
+            cloud_index.reset(); // Release ownership and delete managed object
         }
         this->points_num = 0;
         this->bbox_index = -1;
@@ -157,8 +156,8 @@ public:
                 used_map_set.insert(position);
                 voxel_list.push_back(position);
                 voxel_set.insert(position);
-                umap_in[position].cloud = new pcl::PointCloud<PointType>();
-                umap_in[position].cloud_index = new std::vector<int>();
+                umap_in[position].cloud = std::make_shared<pcl::PointCloud<PointType>>();
+                umap_in[position].cloud_index = std::make_unique<std::vector<int>>();
                 umap_in[position].points_num = 1;
             }    
         }
@@ -186,11 +185,11 @@ public:
             {   
                 voxel_list.push_back(position);
                 voxel_set.insert(position);
-                umap_in[position].cloud = new pcl::PointCloud<PointType>();
+                umap_in[position].cloud = std::make_shared<pcl::PointCloud<PointType>>();
                 umap_in[position].cloud->reserve(5);
                 umap_in[position].cloud->push_back(tmp);
                 umap_in[position].points_num = 1;
-                umap_in[position].cloud_index = new std::vector<int>();
+                umap_in[position].cloud_index = std::make_unique<std::vector<int>>();
                 umap_in[position].cloud_index->reserve(5);
                 umap_in[position].cloud_index->push_back(i);
             }    
@@ -220,7 +219,7 @@ public:
                 voxel_set.insert(position);
                 umap[position].reset(new Point_Cloud(tmp));
                 umap[position]->points_num = 1;
-                umap[position]->cloud_index = new std::vector<int>(); 
+                umap[position]->cloud_index = std::make_unique<std::vector<int>>(); 
                 umap[position]->cloud_index->reserve(5);
                 umap[position]->cloud_index->push_back(i);
             }    
@@ -253,7 +252,7 @@ public:
     
     void extract(std::vector<std::vector<int>> &voxel_clusters)
     {   
-        for (int voxel_ind = 0; voxel_ind < voxel_list.size(); voxel_ind++)
+        for (size_t voxel_ind = 0; voxel_ind < voxel_list.size(); voxel_ind++)
         {
             int voxel_cur = voxel_list[voxel_ind];
             if (voxel_set.count(voxel_cur))
