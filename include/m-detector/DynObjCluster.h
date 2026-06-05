@@ -69,12 +69,8 @@ public:
     int cluster_extend_pixel = 2;
     int cluster_min_pixel_number = 4;
     float Voxel_revolusion = 0.3f;
-    int time_ind =0;
-    double time_total = 0.0, time_total_average =0.0;
     int cur_frame = 0;
     float thrustable_thresold = 0.3f;
-    std::string out_file = "";
-    std::ofstream out;
     bool debug_en{false};
     std_msgs::msg::Header header;
     Eigen::Matrix3d odom_rot;

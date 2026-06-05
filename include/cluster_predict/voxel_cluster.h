@@ -25,10 +25,13 @@ struct Point_Cloud {
     typedef std::shared_ptr<Point_Cloud> Ptr;
     int bbox_index{-1};
     int points_num{0};
-    pcl::PointCloud<PointType>::Ptr cloud;
-    std::shared_ptr<std::vector<int>> cloud_index;
+    
+    pcl::PointCloud<PointType>* cloud{nullptr};
+    std::vector<int>* cloud_index{nullptr};
+
     Point_Cloud(PointType point, int index)
     {
+        this->cloud = new pcl::PointCloud<PointType>();
         this->cloud->points.push_back(point);
         this->bbox_index = index;
     }
@@ -38,20 +41,27 @@ struct Point_Cloud {
         this->bbox_index = index;
     }
     
-    Point_Cloud(){
-    }
+    Point_Cloud() = default; // 显式默认，确保为 trivial
 
     Point_Cloud(PointType point)
     {   
-        this->cloud.reset(new pcl::PointCloud<PointType>());
+        this->cloud = new pcl::PointCloud<PointType>();
         this->cloud->reserve(5);
         this->cloud->points.push_back(point);
     }
 
-    ~Point_Cloud(){};
+    ~Point_Cloud() = default; // 显式默认，防止 resize 时单线程析构带来的性能损耗
 
     void reset()
     {   
+        if (cloud) {
+            delete cloud;
+            cloud = nullptr;
+        }
+        if (cloud_index) {
+            delete cloud_index;
+            cloud_index = nullptr;
+        }
         this->points_num = 0;
         this->bbox_index = -1;
     }
@@ -78,13 +88,8 @@ struct test_struct{
 
     void reset()
     {   
-        // int i = 0;
-        // if(this->cloud->size()>0) this->cloud->clear();
-        // this->bbox_index = -1;
         this->points_num = 0;
         this->bbox_index = -1;
-        // points_num = 0;
-        // this->cloud_index.clear();
     };
 
 };
@@ -140,12 +145,10 @@ public:
             tmp.y = points_.points[i].y;
             tmp.z = points_.points[i].z;
             tmp.intensity = 0;
-            // VOXEL voxel(floor(tmp.x/Voxel_revolusion), floor(tmp.y/Voxel_revolusion), floor(tmp.z/Voxel_revolusion));
             int position = floor((tmp.x - xyz_origin(0))/Voxel_revolusion) * Grid_edge_size_xy * Grid_edge_size_z + floor((tmp.y - xyz_origin(1))/Voxel_revolusion) * Grid_edge_size_z + floor((tmp.z- xyz_origin(2))/Voxel_revolusion);
             if(position < 0 || position > Grid_edge_size_xy* Grid_edge_size_xy* Grid_edge_size_z) continue;
             if (umap_in[position].points_num > 0)
             {
-                // umap[voxel].cloud.push_back(tmp);
                 umap_in[position].points_num = umap_in[position].points_num + 1;
                 continue;
             }
@@ -154,9 +157,8 @@ public:
                 used_map_set.insert(position);
                 voxel_list.push_back(position);
                 voxel_set.insert(position);
-                // umap_in[voxel] = new Point_Cloud(-1);
-                umap_in[position].cloud.reset(new pcl::PointCloud<PointType>());
-                umap_in[position].cloud_index.reset(new std::vector<int>());
+                umap_in[position].cloud = new pcl::PointCloud<PointType>();
+                umap_in[position].cloud_index = new std::vector<int>();
                 umap_in[position].points_num = 1;
             }    
         }
@@ -184,14 +186,11 @@ public:
             {   
                 voxel_list.push_back(position);
                 voxel_set.insert(position);
-                // Point_Cloud new_ptr(tmp);
-                // umap_in[position] = new_ptr;
-                umap_in[position].cloud.reset(new pcl::PointCloud<PointType>());
+                umap_in[position].cloud = new pcl::PointCloud<PointType>();
                 umap_in[position].cloud->reserve(5);
                 umap_in[position].cloud->push_back(tmp);
-                // umap_in[voxel] = new Point_Cloud(tmp);
                 umap_in[position].points_num = 1;
-                umap_in[position].cloud_index.reset(new std::vector<int>());
+                umap_in[position].cloud_index = new std::vector<int>();
                 umap_in[position].cloud_index->reserve(5);
                 umap_in[position].cloud_index->push_back(i);
             }    
@@ -220,9 +219,8 @@ public:
                 voxel_list.push_back(position);
                 voxel_set.insert(position);
                 umap[position].reset(new Point_Cloud(tmp));
-                // umap_in[voxel] = new Point_Cloud(tmp);
                 umap[position]->points_num = 1;
-                umap[position]->cloud_index.reset(new std::vector<int>());
+                umap[position]->cloud_index = new std::vector<int>(); 
                 umap[position]->cloud_index->reserve(5);
                 umap[position]->cloud_index->push_back(i);
             }    
@@ -251,21 +249,10 @@ public:
                 }
             }
         }
-        // for (int neighbor_ind = 0; neighbor_ind < 6; neighbor_ind++)
-        // {
-        //     VOXEL voxel_neighbor(voxel.x + x_neighbor[neighbor_ind], voxel.y + y_neighbor[neighbor_ind], voxel.z + z_neighbor[neighbor_ind]);
-        //     if (umap.count(voxel_neighbor) && !voxel_added.count(voxel_neighbor))
-        //     {
-        //         voxel_added.insert(voxel_neighbor);
-        //         extendVoxelNeighbor(voxel_neighbor, voxel_added);
-        //     }
-        // }
     }
     
     void extract(std::vector<std::vector<int>> &voxel_clusters)
     {   
-        // std::vector<Point_Cloud> umap_copy = umap;
-        // std::unordered_set<int> voxel_set_copy = voxel_set;
         for (int voxel_ind = 0; voxel_ind < voxel_list.size(); voxel_ind++)
         {   
             int voxel_cur = voxel_list[voxel_ind];
@@ -292,8 +279,6 @@ public:
                 continue;
             } 
         }
-        // std::vector<Point_Cloud>().swap(umap_copy);
-        // std::vector<Point_Cloud>().swap(umap);
     }
 
 protected:
@@ -304,9 +289,6 @@ protected:
     Eigen::Vector3f xyz_origin;
     std::vector<Point_Cloud> umap;
     int max_range;
-    // int x_neighbor[6] = {1, -1, 0, 0,  0,  0};
-    // int y_neighbor[6] = {0, 0, 1, -1,  0,  0};
-    // int z_neighbor[6] = {0, 0, 0,  0, -1, -1};
     int min_cluster_voxels_;
 };
 

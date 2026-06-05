@@ -346,7 +346,6 @@ public:
     int points_num_perframe = 200000;
     int cur_point_soph_pointers = 0;
     int max_pointers_num = 0;
-    int frame_num_for_rec = 0;
     std::deque<PointCloudXYZI::Ptr> pcl_his_list;;
     PointCloudXYZI::Ptr laserCloudSteadObj;
     PointCloudXYZI::Ptr laserCloudSteadObj_hist;
@@ -402,10 +401,8 @@ public:
     int    occu_time_th = 3, is_occu_time_th = 3, map_index = 0;
     int    case1_num = 0, case2_num = 0, case3_num = 0;
     
-    double time_interp1 = 0.0, time_interp2 = 0.0;
-    double time_search = 0.0, time_search_0 = 0.0, time_research = 0.0, time_build = 0.0, time_other0 = 0.0, time_total = 0.0, time_total_avr = 0.0;
     float  buffer_time = 0.0f, buffer_dur = 0.1f;
-    int    point_index = 0, time_ind = 0, max_ind = 1257, occlude_windows = 3;
+    int    point_index = 0, max_ind = 1257, occlude_windows = 3;
     bool   debug_en = false;
     int    roll_num = 700, pitch_num = 350;
     int    dataset = 0;
@@ -423,13 +420,8 @@ public:
     double case3_total = 0.0;
     bool dyn_filter_en = true;
     mutex mtx_case2, mtx_case3; 
-    std::vector<int> pos_offset;
-    string time_file;
-    ofstream time_out;
 
     std::vector<double> time_test1, time_test2, time_test3, time_occ_check, time_map_cons, time_proj;
-    string time_breakdown_file;
-    ofstream time_breakdown_out;
 
     DynObjFilter(){};
     DynObjFilter(float windows_dur, float hor_resolution, float ver_resolution)
@@ -440,7 +432,6 @@ public:
     void init();
     void filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_end, const V3D & pos_end, const double & scan_end_time);
     void publish_dyn(fins::Node *node, const double & scan_end_time);
-    void set_path(string file_path, string file_path_origin);
 
     void  Points2Buffer(vector<point_soph*> &points, std::vector<int> &index_vector);
     void  Buffer2DepthMap(double cur_time);
@@ -469,11 +460,6 @@ public:
     bool  Case3DepthConsistencyCheck(const point_soph & p, const DepthMap &map_info);
     bool  CheckVerFoV(const point_soph & p, const DepthMap &map_info);
     void  CheckNeighbor(const point_soph & p, const DepthMap &map_info, float &max_depth, float &min_depth);
-
-private:
-    bool is_set_path = false;
-    string out_file;
-    string out_file_origin;
 };
 
 #endif

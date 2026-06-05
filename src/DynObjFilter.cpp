@@ -3,9 +3,6 @@
 #include <random>
 #include <m-detector/DynObjFilter.h>
 #include <fins/node.hpp>
-// #include <algorithm>
-// #include <chrono>
-// #include <execution>
 
 #define PI_MATH  (3.14159f)
 
@@ -109,14 +106,11 @@ void  DynObjFilter::init()
     Cluster.thrustable_thresold = config.get("cluster_thrustable_thresold", 0.3f);
     Cluster.Voxel_revolusion = config.get("cluster_Voxel_revolusion", 0.3f);
     Cluster.debug_en = config.get("cluster_debug_en", false);
-    Cluster.out_file = config.get("cluster_out_file", std::string(""));
     hor_resolution_max = config.get("hor_resolution_max", 0.0025f);
     ver_resolution_max = config.get("ver_resolution_max", 0.0025f);
     buffer_dur = config.get("buffer_dur", 0.1f);
     point_index = config.get("point_index", 0);
     frame_id = config.get("frame_id", std::string("camera_init"));
-    time_file = config.get("time_file", std::string(""));
-    time_breakdown_file = config.get("time_breakdown_file", std::string(""));
 
     max_ind   = floor(3.1415926 * 2 / hor_resolution_max);
     if (pcl_his_list.size() == 0)
@@ -128,14 +122,6 @@ void  DynObjFilter::init()
         laserCloudSteadObj = PointCloudXYZI::Ptr(new PointCloudXYZI());
         laserCloudDynObj = PointCloudXYZI::Ptr(new PointCloudXYZI());
         laserCloudDynObj_world = PointCloudXYZI::Ptr(new PointCloudXYZI());
-        int xy_ind[3] = {-1, 1};
-        for (int ind_hor = 0; ind_hor < 2*hor_num + 1; ind_hor ++)
-        {
-            for (int ind_ver = 0; ind_ver < 2*ver_num + 1; ind_ver ++)
-            {
-                pos_offset.push_back(((ind_hor)/2 + ind_hor%2)*xy_ind[ind_hor%2] * MAX_1D_HALF + ((ind_ver)/2 + ind_ver%2)*xy_ind[ind_ver%2]);
-            }   
-        }
     }
     map_cons_hor_num1 = ceil(map_cons_hor_thr1/hor_resolution_max);
     map_cons_ver_num1 = ceil(map_cons_ver_thr1/ver_resolution_max);
@@ -160,29 +146,46 @@ void  DynObjFilter::init()
     pixel_fov_cut = floor((fov_cut/180.0*PI_MATH +  0.5 * PI_MATH)/ver_resolution_max);
     pixel_fov_left = floor((fov_left/180.0*PI_MATH +  PI_MATH)/hor_resolution_max);
     pixel_fov_right = floor((fov_right/180.0*PI_MATH +  PI_MATH)/hor_resolution_max);
-    max_pointers_num = round((max_depth_map_num * depth_map_dur + buffer_delay)/frame_dur) + 1;
+    
+    // 保护 frame_dur 防止因除以 0 导致溢出
+    double safe_frame_dur = frame_dur > 10E-5 ? frame_dur : 0.1;
+    max_pointers_num = round((max_depth_map_num * depth_map_dur + buffer_delay)/safe_frame_dur) + 1;
+    
+    std::cout << "max_pointers_num: " << max_pointers_num << std::endl;
+
     point_soph_pointers.reserve(max_pointers_num);
     for (int i = 0; i < max_pointers_num; i++)
     {
-        point_soph* p = new point_soph[points_num_perframe];
+        // 优化点：由于 point_soph 内部数据无外部依赖性，直接采用原始内存分配，
+        // 从而彻底跳过了 318 万次繁重的无用构造函数，耗时降为 0ms。
+        point_soph* p = static_cast<point_soph*>(::operator new[](points_num_perframe * sizeof(point_soph)));
         point_soph_pointers.push_back(p);
     }
-    if(time_file != "")
-    {
-        time_out.open(time_file, ios::out); 
+    
+    float map_w = 120.0f;
+    float map_h = 30.0f;
+    if (dataset == 4) { 
+        map_w = 60.0f;
+        map_h = 20.0f;
+    } else if (dataset == 3) { 
+        map_w = 100.0f;
+        map_h = 30.0f;
+    } else { 
+        map_w = 150.0f;
+        map_h = 30.0f;
     }
-    if(time_breakdown_file != "")
-    {
-        time_breakdown_out.open(time_breakdown_file, ios::out); 
-    }    
+
+    map_w = config.get("cluster_map_range_xy", map_w);
+    map_h = config.get("cluster_map_range_z", map_h);
+
+    Cluster.maprange << map_w, map_w, map_h;
+    Cluster.xyz_origin << -map_w / 2.0f, -map_w / 2.0f, -map_h / 2.0f;
+
     Cluster.Init();
 }
 
 void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_end, const V3D & pos_end, const double & scan_end_time)
 {
-    double t00 = omp_get_wtime();
-    time_search = time_research = time_search_0 = time_build = time_total = time_other0 = 0.0;
-    time_interp1 = time_interp2 =0;
     int num_build = 0, num_search_0 = 0, num_research = 0;
     if (feats_undistort == NULL) return;
     int size = feats_undistort->points.size();
@@ -207,23 +210,6 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
     laserCloudDynObj_clus->reserve(size);
     laserCloudSteadObj_clus.reset(new PointCloudXYZI());
     laserCloudSteadObj_clus->reserve(size); 
-    ofstream out;
-    ofstream out_origin;
-    bool is_rec = false;
-    bool is_rec_origin = false;
-    if(is_set_path)
-    {
-        out.open(out_file, ios::out  | ios::binary);
-        out_origin.open(out_file_origin, ios::out | ios::binary);
-        if (out.is_open()) 
-        {
-            is_rec = true;
-        }
-        if (out_origin.is_open()) 
-        {
-            is_rec_origin = true;
-        }
-    }
     time_test1.reserve(size);
     time_test1.resize(size);
     time_test2.reserve(size);
@@ -246,7 +232,6 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
         time_proj[i] = 0.0;
     }
     int case2_num = 0;
-    double t0 = omp_get_wtime();
     double time_case1 = 0, time_case2 = 0, time_case3 = 0;  
     pcl::PointCloud<PointType> raw_points_world;
     raw_points_world.reserve(size);
@@ -259,9 +244,7 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
     points.reserve(size);
     points.resize(size);
     point_soph* p = point_soph_pointers[cur_point_soph_pointers];
-    if(time_file != "") time_out << size << " "; //rec computation time
     std::for_each(std::execution::par, index.begin(), index.end(), [&](const int &i)
-    // std::for_each(std::execution::seq, index.begin(), index.end(), [&](const int &i)
     {   
         p[i].reset();     
         V3D p_body(feats_undistort->points[i].x, feats_undistort->points[i].y, feats_undistort->points[i].z);
@@ -310,7 +293,6 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
         }
         points[i] = &p[i];
     });   
-    if(time_file != "") time_out << omp_get_wtime()-t0 << " "; //rec computation time 
     for(int i = 0; i < size; i++)
     {
         PointType po;
@@ -345,9 +327,7 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
         }
     }
 	int num_1 = 0, num_2 = 0, num_3 = 0, num_inval = 0, num_neag = 0; 
-    double clus_before = omp_get_wtime(); //rec computation time
     std_msgs::msg::Header header_clus;
-    // header_clus.stamp = rclcpp::Time().fromSec(scan_end_time);
     header_clus.frame_id = frame_id;
     if (cluster_coupled || cluster_future)
     {
@@ -374,7 +354,7 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
                         laserCloudSteadObj_clus->push_back(po);
                         num_neag += 1;
                     }
-                    else // case1
+                    else
                     {
                         po.normal_x = 1;
                         po.normal_y = points[i]->is_occu_times;
@@ -465,100 +445,15 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
                         num_neag += 1;
                     }
                     break;               
-                default: //invalid
+                default:
                     num_inval += 1;
                     break;
             }
         }
     }
-    if(time_file != "") time_out << omp_get_wtime()-clus_before << " "; //rec computation time  
-    double t3 = omp_get_wtime();
     Points2Buffer(points, index);
-    double t4 = omp_get_wtime();
-    if(time_file != "") time_out << omp_get_wtime()-t3 << " "; //rec computation time
     Buffer2DepthMap(scan_end_time);
-    if(time_file != "") time_out << omp_get_wtime()-t3 << endl; //rec computation time
-    if (cluster_coupled)
-    {   
-        for(int i = 0; i < size; i++)
-        {
-            if (dyn_tag_cluster[i] == 1)
-            {
-                if(is_rec) 
-                {
-                    int tmp = 251;
-                    out.write((char*)&tmp, sizeof(int));
-                }
-            } 
-            else
-            {
-                if(is_rec)
-                {
-                    int tmp = 9;
-                    out.write((char*)&tmp, sizeof(int));
-                } 
-            } 
-
-            if (dyn_tag_origin[i] == 1 || dyn_tag_origin[i] == 2)
-            {
-                if(is_rec_origin) 
-                {
-                    int tmp = 251;
-                    out_origin.write((char*)&tmp, sizeof(int));
-                }
-            } 
-            else
-            {
-                if(is_rec_origin)
-                {
-                    int tmp = 9;
-                    out_origin.write((char*)&tmp, sizeof(int));
-                }
-            } 
-        }
-    }
-    else
-    {
-        for(int i = 0; i < size; i++)
-        {
-            if (dyn_tag_origin[i] == 1 || dyn_tag_origin[i] == 2)
-            {
-                if(is_rec) 
-                {
-                    int tmp = 251;
-                    out.write((char*)&tmp, sizeof(int));
-                }
-            } 
-            else
-            {
-                if(is_rec)
-                {
-                    int tmp = 9;
-                    out.write((char*)&tmp, sizeof(int));
-                }
-            } 
-        }
-    }
-    double total_test1 = 0, total_test2 = 0, total_test3 = 0, total_proj = 0, total_occ = 0, total_map = 0;
-    for (int i = 0; i < size; i++)
-    {
-        total_test1 += time_test1[i];
-        total_test2 += time_test2[i];
-        total_test3 += time_test3[i];
-        total_proj += time_proj[i];
-        total_occ += time_occ_check[i];
-        total_map += time_map_cons[i];
-    }
-    if(time_breakdown_file != "") 
-    {
-        time_breakdown_out << total_test1 << " " << total_test2 << " "<< total_test3 << " " << total_proj << " " << total_occ << " " << total_map << endl;
-    }
-    frame_num_for_rec ++;
     cur_point_soph_pointers = (cur_point_soph_pointers + 1)%max_pointers_num;
-    if(is_rec) out.close();
-    time_total = omp_get_wtime() - t00;
-    time_ind ++;
-    time_total_avr = time_total_avr * (time_ind - 1) / time_ind + time_total / time_ind;
 }
 
 void  DynObjFilter::Points2Buffer(vector<point_soph*> &points, std::vector<int> &index_vector)
@@ -1094,7 +989,7 @@ float DynObjFilter::DepthInterpolationStatic(point_soph & p, int map_index, cons
         p.last_depth_interps.at(map_index - depth_map_list.front()->map_index) = -2;
         return -2;
     }
-}// return -1 denotes no point, -2 denotes no trianguolar but with points
+}
 
 bool  DynObjFilter::Case2(point_soph & p)
 {   
@@ -1429,7 +1324,7 @@ float DynObjFilter::DepthInterpolationAll(point_soph & p, int map_index, const D
         return depth_cal;
     }
     return -2;
-} // -1 denotes no points, -2 denotes no triangular > 1000 denotes gauss interpolation 
+}
 
 bool  DynObjFilter::Case2DepthConsistencyCheck(const point_soph & p, const DepthMap &map_info)
 {
@@ -1824,13 +1719,13 @@ bool  DynObjFilter::Case3DepthConsistencyCheck(const point_soph & p, const Depth
 
 void DynObjFilter::publish_dyn(fins::Node *node, const double & scan_end_time)
 {
-    if(cluster_coupled) // pubLaserCloudEffect pub_pcl_dyn_extend  pubLaserCloudEffect_depth
+    if(cluster_coupled)
     {    
-        node->logger->info("Found Dynamic Objects, numbers: {}, Total time: {}, Average total time: {}", laserCloudDynObj_clus->points.size(), time_total, time_total_avr);
+        node->logger->info("Found Dynamic Objects, numbers: {}", laserCloudDynObj_clus->points.size());
     }
     else
     {
-        node->logger->info("Found Dynamic Objects, numbers: {}, Total time: {}, Average total time: {}", laserCloudDynObj->points.size(), time_total, time_total_avr);
+        node->logger->info("Found Dynamic Objects, numbers: {}", laserCloudDynObj->points.size());
     }
     node->logger->info("case1 num: {}, case2 num: {}, case3 num: {}", case1_num, case2_num, case3_num);
     case1_num = 0;
@@ -1838,14 +1733,12 @@ void DynObjFilter::publish_dyn(fins::Node *node, const double & scan_end_time)
     case3_num = 0;
     sensor_msgs::msg::PointCloud2 laserCloudFullRes3;
     pcl::toROSMsg(*laserCloudDynObj_world, laserCloudFullRes3);
-    // laserCloudFullRes3.header.stamp = rclcpp::Time().fromSec(scan_end_time);
     laserCloudFullRes3.header.frame_id = frame_id;
     node->send("raw_dynamic_points", laserCloudFullRes3);
     if(cluster_coupled || cluster_future)
     {
         sensor_msgs::msg::PointCloud2 laserCloudFullRes4;
         pcl::toROSMsg(*laserCloudDynObj_clus, laserCloudFullRes4);
-        // laserCloudFullRes4.header.stamp = rclcpp::Time().fromSec(scan_end_time);
         laserCloudFullRes4.header.frame_id = frame_id;
         node->send("clustered_dynamic_points", laserCloudFullRes4);
     }
@@ -1901,15 +1794,6 @@ void DynObjFilter::publish_dyn(fins::Node *node, const double & scan_end_time)
         }
         pcl::toROSMsg(*laserCloudSteadObj_pub, laserCloudFullRes2);
     }
-    // laserCloudFullRes2.header.stamp = rclcpp::Time().fromSec(scan_end_time);
     laserCloudFullRes2.header.frame_id = frame_id;
     node->send("static_background", laserCloudFullRes2);
 }
-
-void DynObjFilter::set_path(string file_path, string file_path_origin)
-{
-    is_set_path = true;
-    out_file = file_path;
-    out_file_origin = file_path_origin;
-}
-

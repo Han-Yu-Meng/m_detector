@@ -6,23 +6,23 @@
 
 void DynObjCluster::Init()
 {
-    // pub_pcl_dyn_extend = pub_pcl_dyn_extend_in;
-    // cluster_vis_high = cluster_vis_high_in;
-    // pub_ground_points = pub_ground_points_in;
-    // xyz_origin << -20., -20., -20.;
-    // maprange << 40., 40., 40.;
-    xyz_origin << -100., -100., -20.;
-    maprange << 200., 200., 40.;
+    if (maprange.norm() < 1e-3) {
+        xyz_origin << -60., -60., -15.;
+        maprange << 120., 120., 30.;
+    }
+    
     GridMapedgesize_xy = ceil(maprange(0) / Voxel_revolusion);
     GridMapedgesize_z = ceil(maprange(2) / Voxel_revolusion);
     GridMapsize = GridMapedgesize_xy * GridMapedgesize_xy * GridMapedgesize_z;
+
+    std::cout << "GridMapsize:" << GridMapsize << std::endl;
+
     umap.reserve(GridMapsize);
     umap.resize(GridMapsize);
     umap_ground.reserve(GridMapsize);
     umap_ground.resize(GridMapsize);
     umap_insidebox.reserve(GridMapsize);
     umap_insidebox.resize(GridMapsize);
-    if(out_file != "") out.open(out_file, std::ios::out  | std::ios::binary);
 }
 
 void DynObjCluster::Clusterprocess(std::vector<int> &dyn_tag, pcl::PointCloud<PointType> event_point, const pcl::PointCloud<PointType> &raw_point, const std_msgs::msg::Header &header_in, const Eigen::Matrix3d odom_rot_in, const Eigen::Vector3d odom_pos_in)
@@ -64,18 +64,11 @@ void DynObjCluster::GetClusterResult(pcl::PointCloud<PointType>::Ptr points_in, 
     ec.setMaxClusterSize(max_cluster_size);
     ec.setSearchMethod(tree);
     ec.setInputCloud(points_in);
-    // rclcpp::Time t0 = this->get_clock()->now();
     ec.extract(cluster_indices);
 }
 
 void DynObjCluster::GetClusterResult_voxel(pcl::PointCloud<PointType>::Ptr points_in, std::vector<Point_Cloud> &umap_in, std::vector<std::vector<int>> &voxel_clusters, std::unordered_set<int> &used_map_set)
 {
-    // rclcpp::Time t0 = this->get_clock()->now();
-    // if ( (out_file != "") && points_in->size() < 2)
-    // {   
-    //     out << (this->get_clock()->now() - t0).toSec() << " ";
-    //     return;
-    // }
     VOXEL_CLUSTER cluster;
     cluster.setInputCloud(*points_in);
     cluster.setVoxelResolution(Voxel_revolusion, GridMapedgesize_xy, GridMapedgesize_z, xyz_origin);
@@ -83,7 +76,6 @@ void DynObjCluster::GetClusterResult_voxel(pcl::PointCloud<PointType>::Ptr point
     cluster.setMinClusterSize(cluster_min_pixel_number);
     cluster.createVoxelMap(umap_in, used_map_set);
     cluster.extract(voxel_clusters);
-    // if(out_file != "") out << (this->get_clock()->now() - t0).toSec() << " ";
 }
 
 void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::msg::Header current_header, bbox_t &bbox, double delta,
@@ -101,7 +93,6 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
     int Grid_size_1d = 3;
     int Grid_size = pow(Grid_size_1d, 3);
 
-    // rclcpp::Time t0 = this->get_clock()->now();
     for (auto it = voxel_clusters.begin(); it != voxel_clusters.end(); it++, j++)
     {
         Eigen::Vector3f xyz;
@@ -179,7 +170,6 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
         }
     }
 
-    // rclcpp::Time t1 = this->get_clock()->now();
     double hash_newtime = 0.0;
     std::vector<int> index_bbox(bbox.Center.size());
     for (int i = 0; i < bbox.Center.size(); i++)
@@ -247,7 +237,6 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
     }
 
 
-    // rclcpp::Time t2 = this->get_clock()->now();
     for (int ite = 0; ite < raw_point.size(); ite++)
     {
         if (dyn_tag[ite] == -1)
@@ -262,9 +251,9 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
             bbox.Ground_points[umap_ground[voxel].bbox_index].push_back(raw_point[ite]);
             if (umap_ground[voxel].points_num == 0)
             {
-                umap_ground[voxel].cloud.reset(new pcl::PointCloud<PointType>());
+                umap_ground[voxel].cloud = new pcl::PointCloud<PointType>(); // 优化为原生指针创建
                 umap_ground[voxel].cloud->reserve(5);
-                umap_ground[voxel].cloud_index.reset(new std::vector<int>());
+                umap_ground[voxel].cloud_index = new std::vector<int>();    // 优化为原生指针创建
                 umap_ground[voxel].cloud_index->reserve(5);
                 umap_ground[voxel].cloud->push_back(raw_point[ite]);
                 umap_ground[voxel].cloud_index->push_back(ite);
@@ -294,7 +283,7 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
             bbox.Point_indices[umap_insidebox[voxel].bbox_index].push_back(ite);
             if (umap_insidebox[voxel].points_num == 0)
             {
-                umap_insidebox[voxel].cloud.reset(new pcl::PointCloud<PointType>());
+                umap_insidebox[voxel].cloud = new pcl::PointCloud<PointType>(); // 优化为原生指针创建
                 umap_insidebox[voxel].cloud->reserve(5);
                 umap_insidebox[voxel].cloud->push_back(tmp);
             }
@@ -311,7 +300,6 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
         }
     }
     int k = 0;
-    // rclcpp::Time t3 = this->get_clock()->now();
     std::vector<double> ground_estimate_total_time(index_bbox.size(), 0.0);
     std::vector<double> region_growth_time(index_bbox.size(), 0.0);
     std::for_each(std::execution::par, index_bbox.begin(), index_bbox.end(), [&](const int &k)
@@ -329,16 +317,12 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
 
         Eigen::Vector3f ground_norm(0.0, 0.0, 0.0);
         Eigen::Vector4f ground_plane;
-        // rclcpp::Time t_ge = this->get_clock()->now();
         bool ground_detect = ground_estimate(bbox.Ground_points[k], world_z, ground_norm, ground_plane, bbox.true_ground[k], bbox.Ground_voxels_set[k]);
-        // ground_estimate_total_time[k] = (this->get_clock()->now() - t_ge).toSec();
         Eigen::Matrix3f R;
         R.col(0) = ground_norm;
         if(ground_detect)
         {   
-            // rclcpp::Time t_rg = this->get_clock()->now();
             event_extend(R, ground_detect, bbox, dyn_tag, k);
-            // region_growth_time[k] = (this->get_clock()->now() - t_rg).toSec();
             ground_remove(ground_plane, bbox.Point_cloud[k], bbox.Point_indices[k], dyn_tag, bbox.true_ground[k], umap);
         }
         isolate_remove(bbox.Point_cloud[k], bbox.Point_indices[k], dyn_tag);
@@ -527,6 +511,10 @@ void DynObjCluster::isolate_remove(pcl::PointCloud<PointType> &cluster_pcl, std:
         {
             dyn_tag[cluster_pcl_ind[i]] = 0;
         }
+    }
+    // 主动释放局部图分配的非平凡底层原生指针，防止内存泄漏
+    for (auto &pair : umap_cluster) {
+        if (pair.second) pair.second->reset();
     }
     std::unordered_map<int, Point_Cloud::Ptr>().swap(umap_cluster);
     cluster_pcl = new_cluster_pcl;
