@@ -244,14 +244,7 @@ public:
                         if(voxel_neighbor < 0 || voxel_neighbor > Grid_edge_size_xy* Grid_edge_size_xy* Grid_edge_size_z) continue;
                         if (voxel_set.count(voxel_neighbor) && !voxel_added.count(voxel_neighbor))
                         {   
-                            // std::cout << "voxel neightbor: " << voxel_neighbor << std::endl;
                             voxel_added.insert(voxel_neighbor);
-                            // std::cout << "after: " << std::endl;
-                            // for(auto ite = voxel_added.begin(); ite!=voxel_added.end(); ite++)
-                            // {
-                            //     std::cout << *ite << " ";
-                            // }
-                            // std::cout << std::endl;
                             extendVoxelNeighbor(voxel_neighbor, voxel_added);
                         }
                     }
@@ -286,18 +279,12 @@ public:
                 for(auto iter=voxel_added.begin(); iter!=voxel_added.end(); ++iter)
                 {
                     voxel_set.erase(*iter);
-                    // std::cout << "erase: " << *iter << std::endl;
                     voxel_candidate_vec.push_back(*iter);
                     size++;
                 }
                 if (size >= min_cluster_voxels_)
                 {
-                    // std::cout << "---------------";
                     voxel_clusters.push_back(voxel_candidate_vec);
-                    // for(auto iter=voxel_added.begin(); iter!=voxel_added.end(); ++iter)
-                    // {
-                    //     voxel_set.erase(*iter);
-                    // }   
                 }
             }
             else

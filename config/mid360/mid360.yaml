@@ -1,9 +1,4 @@
 dyn_obj:
-    points_topic: "/cloud_registered_body"
-    odom_topic: "/aft_mapped_to_init"
-    frame_id: "camera_init"
-    pc_topic: "/livox/lidar"
-
     dataset: 4 #0 for kitti, 1 for nuscenes, 2 for waymo
     buffer_delay: 0.1
     buffer_size: 100000

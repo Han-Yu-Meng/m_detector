@@ -13,11 +13,12 @@ depends:
   geometry_msgs: "system"
   nav_msgs: "system"
   sensor_msgs: "system"
+  visualization_msgs: "system"
 
   PCL: "system"
   pcl_conversions: "system"
   OpenCV: "system"
-  TBB: "system"
+  tbb: "system"
 
 licenses:
   - "GNUv2"

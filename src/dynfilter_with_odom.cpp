@@ -1,190 +1,173 @@
-#include <rclcpp/rclcpp.hpp>
+#include <fins/node.hpp>
 #include <omp.h>
 #include <mutex>
-#include <math.h>
+#include <deque>
+#include <string>
+#include <sstream>
+#include <iomanip>
 #include <thread>
-#include <fstream>
-#include <iostream>
-#include <csignal>
-#include <unistd.h>
+#include <atomic>
+
+#include <Eigen/Dense>
 #include <Eigen/Core>
-#include <types.h>
-#include <m-detector/DynObjFilter.h>
+
 #include <nav_msgs/msg/odometry.hpp>
-#include <nav_msgs/msg/path.hpp>
-#include <visualization_msgs/msg/marker.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/io/pcd_io.h>
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <tf/transform_datatypes.h>
-#include <tf/transform_broadcaster.h>
-#include <geometry_msgs/msg/vector3.hpp>
-#include <pcl/filters/random_sample.h>
-#include <Eigen/Eigen>
-#include <eigen_conversions/eigen_msg.h>
 
-#include <deque>
+#include "types.h"
+#include "m-detector/DynObjFilter.h"
 
 using namespace std;
 
-shared_ptr<DynObjFilter> DynObjFilt(new DynObjFilter());
-M3D cur_rot = Eigen::Matrix3d::Identity();
-V3D cur_pos = Eigen::Vector3d::Zero();
+class DynFilterOdomNode : public fins::Node {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-int     QUAD_LAYER_MAX  = 1;
-int     occlude_windows = 3;
-int     point_index = 0;
-float   VER_RESOLUTION_MAX  = 0.01;
-float   HOR_RESOLUTION_MAX  = 0.01;
-float   angle_noise     = 0.001;
-float   angle_occlude     = 0.02;
-float   dyn_windows_dur = 0.5;
-bool    dyn_filter_en = true, dyn_filter_dbg_en = true;
-string  points_topic, odom_topic;
-string  out_folder, out_folder_origin;
-double  lidar_end_time = 0;
-int     dataset = 0;
-int     cur_frame = 0;
-
-std::mutex mtx_buffer;
-deque<M3D> buffer_rots;
-deque<V3D> buffer_poss;
-deque<double> buffer_times;
-deque<double> buffer_pc_times;
-deque<std::shared_ptr<PointCloudXYZI>> buffer_pcs;
-
-
-ros::Publisher pub_pcl_dyn, pub_pcl_dyn_extend, pub_pcl_std; 
-
-void OdomCallback(const nav_msgs::msg::Odometry &cur_odom)
-{
-    Eigen::Quaterniond cur_q;
-    geometry_msgs::Quaternion tmp_q;
-    tmp_q = cur_odom.pose.pose.orientation;
-    tf::quaternionMsgToEigen(tmp_q, cur_q);
-    
-    std::lock_guard<std::mutex> lock(mtx_buffer);
-    cur_rot = cur_q.matrix();
-    cur_pos << cur_odom.pose.pose.position.x, cur_odom.pose.pose.position.y, cur_odom.pose.pose.position.z;
-    buffer_rots.push_back(cur_rot);
-    buffer_poss.push_back(cur_pos);
-    lidar_end_time = cur_odom.header.stamp.toSec();
-    buffer_times.push_back(lidar_end_time);
-    
-    if (buffer_times.size() > 1000)
-    {
-        buffer_rots.pop_front();
-        buffer_poss.pop_front();
-        buffer_times.pop_front();
-    }
-}
-
-void PointsCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg_in)
-{
-    std::shared_ptr<PointCloudXYZI> feats_undistort(new PointCloudXYZI());
-    pcl::fromROSMsg(*msg_in, *feats_undistort);
-    
-    std::lock_guard<std::mutex> lock(mtx_buffer);
-    buffer_pcs.push_back(feats_undistort); 
-    buffer_pc_times.push_back(msg_in->header.stamp.toSec());
-
-    if (buffer_pcs.size() > 100)
-    {
-        buffer_pcs.pop_front();
-        buffer_pc_times.pop_front();
-    }
-}
-
-
-void TimerCallback(const rclcpp::TimerEvent& e)
-{
-    std::shared_ptr<PointCloudXYZI> cur_pc;
-    M3D cur_rot_match;
-    V3D cur_pos_match;
-    double cur_time_match;
-    bool found_match = false;
-
-    {
-        std::lock_guard<std::mutex> lock(mtx_buffer);
-        if(buffer_pcs.size() > 0 && buffer_times.size() > 0)
-        {
-            double pc_time = buffer_pc_times.at(0);
-            
-            // Find closest odom
-            int closest_idx = -1;
-            double min_diff = 1e9;
-            
-            for(int i = 0; i < (int)buffer_times.size(); i++) {
-                double diff = fabs(buffer_times[i] - pc_time);
-                if(diff < min_diff) {
-                    min_diff = diff;
-                    closest_idx = i;
-                }
-            }
-            
-            if(closest_idx != -1 && min_diff < 0.1) {
-                cur_pc = buffer_pcs.at(0);
-                cur_rot_match = buffer_rots.at(closest_idx);
-                cur_pos_match = buffer_poss.at(closest_idx);
-                cur_time_match = buffer_times.at(closest_idx);
-                found_match = true;
-
-                buffer_pcs.pop_front();
-                buffer_pc_times.pop_front();
-                
-                // Pop old odoms that are older than the current matched one
-                for(int i = 0; i < closest_idx; i++) {
-                    buffer_rots.pop_front();
-                    buffer_poss.pop_front();
-                    buffer_times.pop_front();
-                }
-            }
+    ~DynFilterOdomNode() {
+        run_timer_ = false;
+        if (timer_thread_.joinable()) {
+            timer_thread_.join();
         }
     }
 
-    if(found_match)
-    {
-        string file_name = out_folder;
-        stringstream ss;
-        ss << setw(6) << setfill('0') << cur_frame ;
-        file_name += ss.str(); 
-        file_name.append(".label");
-        string file_name_origin = out_folder_origin;
-        stringstream sss;
-        sss << setw(6) << setfill('0') << cur_frame ;
-        file_name_origin += sss.str(); 
-        file_name_origin.append(".label");
+    void define() override {
+        set_name("M_Detector");
+        set_category("SLAM");
 
-        if(file_name.length() > 15 || file_name_origin.length() > 15)
-            DynObjFilt->set_path(file_name, file_name_origin);
+        register_input<sensor_msgs::msg::PointCloud2>("points", &DynFilterOdomNode::on_points_callback);
+        register_input<nav_msgs::msg::Odometry>("odom", &DynFilterOdomNode::on_odom_callback);
 
-        DynObjFilt->filter(cur_pc, cur_rot_match, cur_pos_match, cur_time_match);
-        DynObjFilt->publish_dyn(pub_pcl_dyn, pub_pcl_dyn_extend, pub_pcl_std, cur_time_match);
-        cur_frame ++;
+        register_output<sensor_msgs::msg::PointCloud2>("clustered_dynamic_points");
+        register_output<sensor_msgs::msg::PointCloud2>("raw_dynamic_points");
+        register_output<sensor_msgs::msg::PointCloud2>("static_background");
     }
-}
 
-int main(int argc, char** argv)
-{
-    ros::init(argc, argv, "dynfilter_odom");
-    ros::NodeHandle nh;
-    nh.param<string>("dyn_obj/points_topic", points_topic, "");
-    nh.param<string>("dyn_obj/odom_topic", odom_topic, "");
-    nh.param<string>("dyn_obj/out_file", out_folder,"");
-    nh.param<string>("dyn_obj/out_file_origin", out_folder_origin, "");
+    void initialize() override {
+        dyn_obj_filt_ = make_shared<DynObjFilter>();
+        dyn_obj_filt_->init();
 
-    DynObjFilt->init(nh);    
-    /*** ROS subscribe and publisher initialization ***/
-    pub_pcl_dyn_extend = nh.advertise<sensor_msgs::msg::PointCloud2>("/m_detector/frame_out", 10000);  
-    pub_pcl_dyn = nh.advertise<sensor_msgs::msg::PointCloud2> ("/m_detector/point_out", 100000);
-    pub_pcl_std  = nh.advertise<sensor_msgs::msg::PointCloud2> ("/m_detector/std_points", 100000);   
-    ros::Subscriber sub_pcl = nh.subscribe(points_topic, 200000, PointsCallback);
-    ros::Subscriber sub_odom = nh.subscribe(odom_topic, 200000, OdomCallback);
-    rclcpp::Timer timer = nh.createTimer(rclcpp::Duration(0.01), TimerCallback);
+        run_timer_ = true;
+        timer_thread_ = std::thread([this]() {
+            while (run_timer_) {
+                this->on_timer_callback();
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+        });
+    }
 
-    ros::spin();
-    return 0;
-}
+private:
+    void on_odom_callback(const nav_msgs::msg::Odometry& msg, fins::AcqTime ts) {
+        lock_guard<mutex> lock(mtx_buffer_);
+        
+        Eigen::Quaterniond cur_q(
+            msg.pose.pose.orientation.w,
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z
+        );
+        
+        M3D cur_rot = cur_q.matrix();
+        V3D cur_pos;
+        cur_pos << msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z;
+        
+        buffer_rots_.push_back(cur_rot);
+        buffer_poss_.push_back(cur_pos);
+        
+        double odom_time = fins::to_seconds(ts);
+        buffer_times_.push_back(odom_time);
+        
+        if (buffer_times_.size() > 1000) {
+            buffer_rots_.pop_front();
+            buffer_poss_.pop_front();
+            buffer_times_.pop_front();
+        }
+    }
+
+    void on_points_callback(const sensor_msgs::msg::PointCloud2& msg, fins::AcqTime ts) {
+        shared_ptr<PointCloudXYZI> feats_undistort(new PointCloudXYZI());
+        pcl::fromROSMsg(msg, *feats_undistort);
+        
+        lock_guard<mutex> lock(mtx_buffer_);
+        buffer_pcs_.push_back(feats_undistort); 
+        buffer_pc_times_.push_back(fins::to_seconds(ts));
+        buffer_pc_acq_times_.push_back(ts);
+
+        if (buffer_pcs_.size() > 100) {
+            buffer_pcs_.pop_front();
+            buffer_pc_times_.pop_front();
+            buffer_pc_acq_times_.pop_front();
+        }
+    }
+
+    void on_timer_callback() {
+        shared_ptr<PointCloudXYZI> cur_pc;
+        M3D cur_rot_match;
+        V3D cur_pos_match;
+        double cur_time_match;
+        fins::AcqTime cur_acq_time_match;
+        bool found_match = false;
+
+        {
+            lock_guard<mutex> lock(mtx_buffer_);
+            if (!buffer_pcs_.empty() && !buffer_times_.empty()) {
+                double pc_time = buffer_pc_times_.at(0);
+                
+                int closest_idx = -1;
+                double min_diff = 1e9;
+                
+                for (int i = 0; i < (int)buffer_times_.size(); i++) {
+                    double diff = fabs(buffer_times_[i] - pc_time);
+                    if (diff < min_diff) {
+                        min_diff = diff;
+                        closest_idx = i;
+                    }
+                }
+                
+                if (closest_idx != -1 && min_diff < 0.1) {
+                    cur_pc = buffer_pcs_.at(0);
+                    cur_acq_time_match = buffer_pc_acq_times_.at(0);
+                    cur_rot_match = buffer_rots_.at(closest_idx);
+                    cur_pos_match = buffer_poss_.at(closest_idx);
+                    cur_time_match = buffer_times_.at(closest_idx);
+                    found_match = true;
+
+                    buffer_pcs_.pop_front();
+                    buffer_pc_times_.pop_front();
+                    buffer_pc_acq_times_.pop_front();
+                    
+                    for (int i = 0; i < closest_idx; i++) {
+                        buffer_rots_.pop_front();
+                        buffer_poss_.pop_front();
+                        buffer_times_.pop_front();
+                    }
+                }
+            }
+        }
+
+        if (found_match) {
+            dyn_obj_filt_->filter(cur_pc, cur_rot_match, cur_pos_match, cur_time_match);
+            dyn_obj_filt_->publish_dyn(this, cur_time_match);
+            cur_frame_++;
+        }
+    }
+
+    int cur_frame_ = 0;
+
+    mutex mtx_buffer_;
+    deque<M3D> buffer_rots_;
+    deque<V3D> buffer_poss_;
+    deque<double> buffer_times_;
+    deque<double> buffer_pc_times_;
+    deque<fins::AcqTime> buffer_pc_acq_times_;
+    deque<shared_ptr<PointCloudXYZI>> buffer_pcs_;
+
+    std::atomic<bool> run_timer_{false};
+    std::thread timer_thread_;
+    shared_ptr<DynObjFilter> dyn_obj_filt_;
+};
+
+EXPORT_NODE(DynFilterOdomNode)
+DEFINE_PLUGIN_ENTRY(fins::STATELESS)

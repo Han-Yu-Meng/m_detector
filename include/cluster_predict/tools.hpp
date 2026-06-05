@@ -186,27 +186,15 @@ bool esti_plane(Eigen::Vector4f &pca_result, const pcl::PointCloud<PointType> &p
     average_dis += tmp;
     if ( tmp > threshold)
     { 
-      std::cout << "normvec: " << normvec.normalized() << std::endl;
-      std::cout << "false: " << j << std::endl;
       return false;
     }   
   }
   average_dis = std::max(0.01f, average_dis / point_size / norm);
-  // std::cout << "average distance: " << average_dis << std::endl;
 
   pca_result(0) = normvec(0);
   pca_result(1) = normvec(1);
   pca_result(2) = normvec(2);
-  // pca_result(3) = 1.0 / norm;
   pca_result(3) = average_dis;
-  // if(abs(pca_result(2))< 0.9 && point_size > 80)
-  // { 
-  //   std::cout << "norm_vec: " << pca_result.head(3) << std::endl;
-  //   for (int j = 0; j < point_size; j++) 
-  //   {
-  //     std::cout << "point: " << A.row(j) << std::endl;
-  //   }
-  // }
   return true;
 }
 

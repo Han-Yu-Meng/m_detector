@@ -2,6 +2,7 @@
 #include <vector>
 #include <random>
 #include <m-detector/DynObjFilter.h>
+#include <fins/node.hpp>
 // #include <algorithm>
 // #include <chrono>
 // #include <execution>
@@ -9,111 +10,114 @@
 #define PI_MATH  (3.14159f)
 
 
-void  DynObjFilter::init(ros::NodeHandle& nh)
+void  DynObjFilter::init()
 {
-    nh.param<double>("dyn_obj/buffer_delay", buffer_delay, 0.1);
-    nh.param<int>("dyn_obj/buffer_size", buffer_size, 300000);
-    nh.param<int>("dyn_obj/points_num_perframe", points_num_perframe, 150000);
-    nh.param<double>("dyn_obj/depth_map_dur", depth_map_dur, 0.2);
-    nh.param<int>("dyn_obj/max_depth_map_num", max_depth_map_num, 5);
-    nh.param<int>("dyn_obj/max_pixel_points", max_pixel_points, 50);
-    nh.param<double>("dyn_obj/frame_dur", frame_dur, 0.1);
-    nh.param<int>("dyn_obj/dataset", dataset, 0);
-    nh.param<float>("dyn_obj/self_x_f", self_x_f, 0.15f);
-    nh.param<float>("dyn_obj/self_x_b", self_x_b, 0.15f);
-    nh.param<float>("dyn_obj/self_y_l", self_y_l, 0.15f);
-    nh.param<float>("dyn_obj/self_y_r", self_y_r, 0.5f);
-    nh.param<float>("dyn_obj/blind_dis", blind_dis, 0.15f);
-    nh.param<float>("dyn_obj/fov_up", fov_up, 0.15f);
-    nh.param<float>("dyn_obj/fov_down", fov_down, 0.15f);
-    nh.param<float>("dyn_obj/fov_cut", fov_cut, 0.15f);
-    nh.param<float>("dyn_obj/fov_left", fov_left, 180.0f);
-    nh.param<float>("dyn_obj/fov_right", fov_right, -180.0f);
-    nh.param<int>("dyn_obj/checkneighbor_range", checkneighbor_range, 1);
-    nh.param<bool>("dyn_obj/stop_object_detect", stop_object_detect, false);
-    nh.param<float>("dyn_obj/depth_thr1", depth_thr1, 0.15f);
-    nh.param<float>("dyn_obj/enter_min_thr1", enter_min_thr1, 0.15f);
-    nh.param<float>("dyn_obj/enter_max_thr1", enter_max_thr1, 0.15f);
-    nh.param<float>("dyn_obj/map_cons_depth_thr1", map_cons_depth_thr1, 0.5f);
-    nh.param<float>("dyn_obj/map_cons_hor_thr1", map_cons_hor_thr1, 0.01f);
-    nh.param<float>("dyn_obj/map_cons_ver_thr1", map_cons_ver_thr1, 0.01f);
-    nh.param<float>("dyn_obj/map_cons_hor_dis1", map_cons_hor_dis1, 0.2f);
-    nh.param<float>("dyn_obj/map_cons_ver_dis1", map_cons_ver_dis1, 0.1f);
-    nh.param<float>("dyn_obj/depth_cons_depth_thr1", depth_cons_depth_thr1, 0.5f);
-    nh.param<float>("dyn_obj/depth_cons_depth_max_thr1", depth_cons_depth_max_thr1, 0.5f);
-    nh.param<float>("dyn_obj/depth_cons_hor_thr1", depth_cons_hor_thr1, 0.02f);
-    nh.param<float>("dyn_obj/depth_cons_ver_thr1", depth_cons_ver_thr1, 0.01f);
-    nh.param<float>("dyn_obj/enlarge_z_thr1", enlarge_z_thr1, 0.05f);
-    nh.param<float>("dyn_obj/enlarge_angle", enlarge_angle, 2.0f);
-    nh.param<float>("dyn_obj/enlarge_depth", enlarge_depth, 3.0f);
-    nh.param<int>("dyn_obj/occluded_map_thr1", occluded_map_thr1, 3);
-    nh.param<bool>("dyn_obj/case1_interp_en", case1_interp_en, false);
-    nh.param<float>("dyn_obj/k_depth_min_thr1", k_depth_min_thr1, 0.0f);
-    nh.param<float>("dyn_obj/d_depth_min_thr1", d_depth_min_thr1, 0.15f);
-    nh.param<float>("dyn_obj/k_depth_max_thr1", k_depth_max_thr1, 0.0f);
-    nh.param<float>("dyn_obj/d_depth_max_thr1", d_depth_max_thr1, 0.15f);
-    nh.param<float>("dyn_obj/v_min_thr2", v_min_thr2, 0.5f);
-    nh.param<float>("dyn_obj/acc_thr2", acc_thr2, 1.0f);
-    nh.param<float>("dyn_obj/map_cons_depth_thr2", map_cons_depth_thr2, 0.15f);
-    nh.param<float>("dyn_obj/map_cons_hor_thr2", map_cons_hor_thr2, 0.02f);
-    nh.param<float>("dyn_obj/map_cons_ver_thr2", map_cons_ver_thr2, 0.01f);
-    nh.param<float>("dyn_obj/occ_depth_thr2", occ_depth_thr2, 0.15f);
-    nh.param<float>("dyn_obj/occ_hor_thr2", occ_hor_thr2, 0.02f);
-    nh.param<float>("dyn_obj/occ_ver_thr2", occ_ver_thr2, 0.01f);
-    nh.param<float>("dyn_obj/depth_cons_depth_thr2", depth_cons_depth_thr2, 0.5f);
-    nh.param<float>("dyn_obj/depth_cons_depth_max_thr2", depth_cons_depth_max_thr2, 0.5f);
-    nh.param<float>("dyn_obj/depth_cons_hor_thr2", depth_cons_hor_thr2, 0.02f);
-    nh.param<float>("dyn_obj/depth_cons_ver_thr2", depth_cons_ver_thr2, 0.01f);
-    nh.param<float>("dyn_obj/k_depth2", k_depth2, 0.005f);
-    nh.param<int>("dyn_obj/occluded_times_thr2", occluded_times_thr2, 3);
-    nh.param<bool>("dyn_obj/case2_interp_en", case2_interp_en, false);
-    nh.param<float>("dyn_obj/k_depth_max_thr2", k_depth_max_thr2, 0.0f);
-    nh.param<float>("dyn_obj/d_depth_max_thr2", d_depth_max_thr2, 0.15f);
-    nh.param<float>("dyn_obj/v_min_thr3", v_min_thr3, 0.5f);
-    nh.param<float>("dyn_obj/acc_thr3", acc_thr3, 1.0f);
-    nh.param<float>("dyn_obj/map_cons_depth_thr3", map_cons_depth_thr3, 0.15f);
-    nh.param<float>("dyn_obj/map_cons_hor_thr3", map_cons_hor_thr3, 0.02f);
-    nh.param<float>("dyn_obj/map_cons_ver_thr3", map_cons_ver_thr3, 0.01f);
-    nh.param<float>("dyn_obj/occ_depth_thr3", occ_depth_thr3, 0.15f);
-    nh.param<float>("dyn_obj/occ_hor_thr3", occ_hor_thr3, 0.02f);
-    nh.param<float>("dyn_obj/occ_ver_thr3", occ_ver_thr3, 0.01f);
-    nh.param<float>("dyn_obj/depth_cons_depth_thr3", depth_cons_depth_thr3, 0.5f);
-    nh.param<float>("dyn_obj/depth_cons_depth_max_thr3", depth_cons_depth_max_thr3, 0.5f);
-    nh.param<float>("dyn_obj/depth_cons_hor_thr3", depth_cons_hor_thr3, 0.02f);
-    nh.param<float>("dyn_obj/depth_cons_ver_thr3", depth_cons_ver_thr3, 0.01f);
-    nh.param<float>("dyn_obj/k_depth3", k_depth3, 0.005f);
-    nh.param<int>("dyn_obj/occluding_times_thr3", occluding_times_thr3, 3);
-    nh.param<bool>("dyn_obj/case3_interp_en", case3_interp_en, false);
-    nh.param<float>("dyn_obj/k_depth_max_thr3", k_depth_max_thr3, 0.0f);
-    nh.param<float>("dyn_obj/d_depth_max_thr3", d_depth_max_thr3, 0.15f);
-    nh.param<float>("dyn_obj/interp_hor_thr", interp_hor_thr, 0.01f);
-    nh.param<float>("dyn_obj/interp_ver_thr", interp_ver_thr, 0.01f);
-    nh.param<float>("dyn_obj/interp_thr1", interp_thr1, 1.0f);
-    nh.param<float>("dyn_obj/interp_static_max", interp_static_max, 10.0f);
-    nh.param<float>("dyn_obj/interp_start_depth1", interp_start_depth1, 20.0f);
-    nh.param<float>("dyn_obj/interp_kp1", interp_kp1, 0.1f);
-    nh.param<float>("dyn_obj/interp_kd1", interp_kd1, 1.0f);
-    nh.param<float>("dyn_obj/interp_thr2", interp_thr2, 0.15f);
-    nh.param<float>("dyn_obj/interp_thr3", interp_thr3, 0.15f);
-    nh.param<bool>("dyn_obj/dyn_filter_en", dyn_filter_en, true);
-    nh.param<bool>("dyn_obj/debug_publish", debug_en, true);
-    nh.param<int>("dyn_obj/laserCloudSteadObj_accu_limit", laserCloudSteadObj_accu_limit, 5);
-    nh.param<float>("dyn_obj/voxel_filter_size", voxel_filter_size, 0.1f);
-    nh.param<bool>("dyn_obj/cluster_coupled", cluster_coupled, false);
-    nh.param<bool>("dyn_obj/cluster_future", cluster_future, false);
-    nh.param<int>("dyn_obj/cluster_extend_pixel", Cluster.cluster_extend_pixel, 2);
-    nh.param<int>("dyn_obj/cluster_min_pixel_number", Cluster.cluster_min_pixel_number, 4);
-    nh.param<float>("dyn_obj/cluster_thrustable_thresold", Cluster.thrustable_thresold, 0.3f);
-    nh.param<float>("dyn_obj/cluster_Voxel_revolusion", Cluster.Voxel_revolusion, 0.3f);
-    nh.param<bool>("dyn_obj/cluster_debug_en", Cluster.debug_en, false);
-    nh.param<string>("dyn_obj/cluster_out_file", Cluster.out_file, "");
-    nh.param<float>("dyn_obj/hor_resolution_max", hor_resolution_max, 0.0025f);
-    nh.param<float>("dyn_obj/ver_resolution_max", ver_resolution_max, 0.0025f);
-    nh.param<float>("dyn_obj/buffer_dur", buffer_dur, 0.1f);
-    nh.param<int>("dyn_obj/point_index", point_index, 0);
-    nh.param<string>("dyn_obj/frame_id", frame_id, "camera_init");
-    nh.param<string>("dyn_obj/time_file", time_file, "");
-    nh.param<string>("dyn_obj/time_breakdown_file",time_breakdown_file, "");
+    fins::ParamLoader config("M_Detector");
+
+    buffer_delay = config.get("buffer_delay", 0.1);
+    buffer_size = config.get("buffer_size", 300000);
+    points_num_perframe = config.get("points_num_perframe", 150000);
+    depth_map_dur = config.get("depth_map_dur", 0.2);
+    max_depth_map_num = config.get("max_depth_map_num", 5);
+    max_pixel_points = config.get("max_pixel_points", 50);
+    frame_dur = config.get("frame_dur", 0.1);
+    dataset = config.get("dataset", 0);
+    self_x_f = config.get("self_x_f", 0.15f);
+    self_x_b = config.get("self_x_b", 0.15f);
+    self_y_l = config.get("self_y_l", 0.15f);
+    self_y_r = config.get("self_y_r", 0.5f);
+    blind_dis = config.get("blind_dis", 0.15f);
+    fov_up = config.get("fov_up", 0.15f);
+    fov_down = config.get("fov_down", 0.15f);
+    fov_cut = config.get("fov_cut", 0.15f);
+    fov_left = config.get("fov_left", 180.0f);
+    fov_right = config.get("fov_right", -180.0f);
+    checkneighbor_range = config.get("checkneighbor_range", 1);
+    stop_object_detect = config.get("stop_object_detect", false);
+    depth_thr1 = config.get("depth_thr1", 0.15f);
+    enter_min_thr1 = config.get("enter_min_thr1", 0.15f);
+    enter_max_thr1 = config.get("enter_max_thr1", 0.15f);
+    map_cons_depth_thr1 = config.get("map_cons_depth_thr1", 0.5f);
+    map_cons_hor_thr1 = config.get("map_cons_hor_thr1", 0.01f);
+    map_cons_ver_thr1 = config.get("map_cons_ver_thr1", 0.01f);
+    map_cons_hor_dis1 = config.get("map_cons_hor_dis1", 0.2f);
+    map_cons_ver_dis1 = config.get("map_cons_ver_dis1", 0.1f);
+    depth_cons_depth_thr1 = config.get("depth_cons_depth_thr1", 0.5f);
+    depth_cons_depth_max_thr1 = config.get("depth_cons_depth_max_thr1", 0.5f);
+    depth_cons_hor_thr1 = config.get("depth_cons_hor_thr1", 0.02f);
+    depth_cons_ver_thr1 = config.get("depth_cons_ver_thr1", 0.01f);
+    enlarge_z_thr1 = config.get("enlarge_z_thr1", 0.05f);
+    enlarge_angle = config.get("enlarge_angle", 2.0f);
+    enlarge_depth = config.get("enlarge_depth", 3.0f);
+    occluded_map_thr1 = config.get("occluded_map_thr1", 3);
+    case1_interp_en = config.get("case1_interp_en", false);
+    k_depth_min_thr1 = config.get("k_depth_min_thr1", 0.0f);
+    d_depth_min_thr1 = config.get("d_depth_min_thr1", 0.15f);
+    k_depth_max_thr1 = config.get("k_depth_max_thr1", 0.0f);
+    d_depth_max_thr1 = config.get("d_depth_max_thr1", 0.15f);
+    v_min_thr2 = config.get("v_min_thr2", 0.5f);
+    acc_thr2 = config.get("acc_thr2", 1.0f);
+    map_cons_depth_thr2 = config.get("map_cons_depth_thr2", 0.15f);
+    map_cons_hor_thr2 = config.get("map_cons_hor_thr2", 0.02f);
+    map_cons_ver_thr2 = config.get("map_cons_ver_thr2", 0.01f);
+    occ_depth_thr2 = config.get("occ_depth_thr2", 0.15f);
+    occ_hor_thr2 = config.get("occ_hor_thr2", 0.02f);
+    occ_ver_thr2 = config.get("occ_ver_thr2", 0.01f);
+    depth_cons_depth_thr2 = config.get("depth_cons_depth_thr2", 0.5f);
+    depth_cons_depth_max_thr2 = config.get("depth_cons_depth_max_thr2", 0.5f);
+    depth_cons_hor_thr2 = config.get("depth_cons_hor_thr2", 0.02f);
+    depth_cons_ver_thr2 = config.get("depth_cons_ver_thr2", 0.01f);
+    k_depth2 = config.get("k_depth2", 0.005f);
+    occluded_times_thr2 = config.get("occluded_times_thr2", 3);
+    case2_interp_en = config.get("case2_interp_en", false);
+    k_depth_max_thr2 = config.get("k_depth_max_thr2", 0.0f);
+    d_depth_max_thr2 = config.get("d_depth_max_thr2", 0.15f);
+    v_min_thr3 = config.get("v_min_thr3", 0.5f);
+    acc_thr3 = config.get("acc_thr3", 1.0f);
+    map_cons_depth_thr3 = config.get("map_cons_depth_thr3", 0.15f);
+    map_cons_hor_thr3 = config.get("map_cons_hor_thr3", 0.02f);
+    map_cons_ver_thr3 = config.get("map_cons_ver_thr3", 0.01f);
+    occ_depth_thr3 = config.get("occ_depth_thr3", 0.15f);
+    occ_hor_thr3 = config.get("occ_hor_thr3", 0.02f);
+    occ_ver_thr3 = config.get("occ_ver_thr3", 0.01f);
+    depth_cons_depth_thr3 = config.get("depth_cons_depth_thr3", 0.5f);
+    depth_cons_depth_max_thr3 = config.get("depth_cons_depth_max_thr3", 0.5f);
+    depth_cons_hor_thr3 = config.get("depth_cons_hor_thr3", 0.02f);
+    depth_cons_ver_thr3 = config.get("depth_cons_ver_thr3", 0.01f);
+    k_depth3 = config.get("k_depth3", 0.005f);
+    occluding_times_thr3 = config.get("occluding_times_thr3", 3);
+    case3_interp_en = config.get("case3_interp_en", false);
+    k_depth_max_thr3 = config.get("k_depth_max_thr3", 0.0f);
+    d_depth_max_thr3 = config.get("d_depth_max_thr3", 0.15f);
+    interp_hor_thr = config.get("interp_hor_thr", 0.01f);
+    interp_ver_thr = config.get("interp_ver_thr", 0.01f);
+    interp_thr1 = config.get("interp_thr1", 1.0f);
+    interp_static_max = config.get("interp_static_max", 10.0f);
+    interp_start_depth1 = config.get("interp_start_depth1", 20.0f);
+    interp_kp1 = config.get("interp_kp1", 0.1f);
+    interp_kd1 = config.get("interp_kd1", 1.0f);
+    interp_thr2 = config.get("interp_thr2", 0.15f);
+    interp_thr3 = config.get("interp_thr3", 0.15f);
+    dyn_filter_en = config.get("dyn_filter_en", true);
+    debug_en = config.get("debug_publish", true);
+    laserCloudSteadObj_accu_limit = config.get("laserCloudSteadObj_accu_limit", 5);
+    voxel_filter_size = config.get("voxel_filter_size", 0.1f);
+    cluster_coupled = config.get("cluster_coupled", false);
+    cluster_future = config.get("cluster_future", false);
+    Cluster.cluster_extend_pixel = config.get("cluster_extend_pixel", 2);
+    Cluster.cluster_min_pixel_number = config.get("cluster_min_pixel_number", 4);
+    Cluster.thrustable_thresold = config.get("cluster_thrustable_thresold", 0.3f);
+    Cluster.Voxel_revolusion = config.get("cluster_Voxel_revolusion", 0.3f);
+    Cluster.debug_en = config.get("cluster_debug_en", false);
+    Cluster.out_file = config.get("cluster_out_file", std::string(""));
+    hor_resolution_max = config.get("hor_resolution_max", 0.0025f);
+    ver_resolution_max = config.get("ver_resolution_max", 0.0025f);
+    buffer_dur = config.get("buffer_dur", 0.1f);
+    point_index = config.get("point_index", 0);
+    frame_id = config.get("frame_id", std::string("camera_init"));
+    time_file = config.get("time_file", std::string(""));
+    time_breakdown_file = config.get("time_breakdown_file", std::string(""));
+
     max_ind   = floor(3.1415926 * 2 / hor_resolution_max);
     if (pcl_his_list.size() == 0)
     {   
@@ -342,8 +346,8 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
     }
 	int num_1 = 0, num_2 = 0, num_3 = 0, num_inval = 0, num_neag = 0; 
     double clus_before = omp_get_wtime(); //rec computation time
-    std_msgs::Header header_clus;
-    header_clus.stamp = rclcpp::Time().fromSec(scan_end_time);
+    std_msgs::msg::Header header_clus;
+    // header_clus.stamp = rclcpp::Time().fromSec(scan_end_time);
     header_clus.frame_id = frame_id;
     if (cluster_coupled || cluster_future)
     {
@@ -1818,32 +1822,32 @@ bool  DynObjFilter::Case3DepthConsistencyCheck(const point_soph & p, const Depth
     }
 }
 
-void DynObjFilter::publish_dyn(const ros::Publisher & pub_point_out, const ros::Publisher & pub_frame_out, const ros::Publisher & pub_steady_points, const double & scan_end_time)
+void DynObjFilter::publish_dyn(fins::Node *node, const double & scan_end_time)
 {
     if(cluster_coupled) // pubLaserCloudEffect pub_pcl_dyn_extend  pubLaserCloudEffect_depth
     {    
-        cout<<"Found Dynamic Objects, numbers: " << laserCloudDynObj_clus->points.size() << " Total time: " << time_total << " Average total time: "<< time_total_avr << endl;
+        node->logger->info("Found Dynamic Objects, numbers: {}, Total time: {}, Average total time: {}", laserCloudDynObj_clus->points.size(), time_total, time_total_avr);
     }
     else
     {
-        cout<<"Found Dynamic Objects, numbers: " << laserCloudDynObj->points.size() << " Total time: " << time_total << " Average total time: "<< time_total_avr << endl;
+        node->logger->info("Found Dynamic Objects, numbers: {}, Total time: {}, Average total time: {}", laserCloudDynObj->points.size(), time_total, time_total_avr);
     }
-    cout<<"case1 num: "<<case1_num<<" case2 num: "<<case2_num<<" case3 num: "<<case3_num<<endl;
+    node->logger->info("case1 num: {}, case2 num: {}, case3 num: {}", case1_num, case2_num, case3_num);
     case1_num = 0;
     case2_num = 0;
     case3_num = 0;
     sensor_msgs::msg::PointCloud2 laserCloudFullRes3;
     pcl::toROSMsg(*laserCloudDynObj_world, laserCloudFullRes3);
-    laserCloudFullRes3.header.stamp = rclcpp::Time().fromSec(scan_end_time);
+    // laserCloudFullRes3.header.stamp = rclcpp::Time().fromSec(scan_end_time);
     laserCloudFullRes3.header.frame_id = frame_id;
-    pub_point_out.publish(laserCloudFullRes3);
+    node->send("raw_dynamic_points", laserCloudFullRes3);
     if(cluster_coupled || cluster_future)
     {
         sensor_msgs::msg::PointCloud2 laserCloudFullRes4;
         pcl::toROSMsg(*laserCloudDynObj_clus, laserCloudFullRes4);
-        laserCloudFullRes4.header.stamp = rclcpp::Time().fromSec(scan_end_time);
+        // laserCloudFullRes4.header.stamp = rclcpp::Time().fromSec(scan_end_time);
         laserCloudFullRes4.header.frame_id = frame_id;
-        pub_frame_out.publish(laserCloudFullRes4);
+        node->send("clustered_dynamic_points", laserCloudFullRes4);
     }
     sensor_msgs::msg::PointCloud2 laserCloudFullRes2;
     PointCloudXYZI::Ptr laserCloudSteadObj_pub(new PointCloudXYZI);
@@ -1876,7 +1880,7 @@ void DynObjFilter::publish_dyn(const ros::Publisher & pub_point_out, const ros::
     }
     else
     {
-        cout<<"Found Steady Objects, numbers: " << laserCloudSteadObj->points.size() << endl;
+        node->logger->info("Found Steady Objects, numbers: {}", laserCloudSteadObj->points.size());
         if(laserCloudSteadObj_accu_times < laserCloudSteadObj_accu_limit)
         {
             laserCloudSteadObj_accu_times ++;
@@ -1897,9 +1901,9 @@ void DynObjFilter::publish_dyn(const ros::Publisher & pub_point_out, const ros::
         }
         pcl::toROSMsg(*laserCloudSteadObj_pub, laserCloudFullRes2);
     }
-    laserCloudFullRes2.header.stamp = rclcpp::Time().fromSec(scan_end_time);
+    // laserCloudFullRes2.header.stamp = rclcpp::Time().fromSec(scan_end_time);
     laserCloudFullRes2.header.frame_id = frame_id;
-    pub_steady_points.publish(laserCloudFullRes2);
+    node->send("static_background", laserCloudFullRes2);
 }
 
 void DynObjFilter::set_path(string file_path, string file_path_origin)

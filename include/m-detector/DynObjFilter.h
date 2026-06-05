@@ -14,7 +14,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <nav_msgs/msg/odometry.hpp>
-#include <sensor_msgs/CompressedImage.h>
+// #include <sensor_msgs/CompressedImage.h>
 #include <pcl/filters/voxel_grid.h>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <pcl_conversions/pcl_conversions.h>
@@ -30,6 +30,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/highgui/highgui.hpp>
 // #include <tinycolormap.hpp>
+#include <fins/node.hpp>
 
 
 using namespace std;
@@ -423,7 +424,6 @@ public:
     bool dyn_filter_en = true;
     mutex mtx_case2, mtx_case3; 
     std::vector<int> pos_offset;
-    ros::Publisher demo_pcl_display;
     string time_file;
     ofstream time_out;
 
@@ -437,9 +437,9 @@ public:
     {};
     ~DynObjFilter(){};
 
-    void init(ros::NodeHandle& nh);
+    void init();
     void filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_end, const V3D & pos_end, const double & scan_end_time);
-    void publish_dyn(const ros::Publisher & pub_point_out, const ros::Publisher & pub_frame_out, const ros::Publisher & pub_steady_points, const double & scan_end_time);
+    void publish_dyn(fins::Node *node, const double & scan_end_time);
     void set_path(string file_path, string file_path_origin);
 
     void  Points2Buffer(vector<point_soph*> &points, std::vector<int> &index_vector);
