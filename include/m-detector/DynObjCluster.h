@@ -1,6 +1,8 @@
 #ifndef DYN_OBJ_CLUS_H
 #define DYN_OBJ_CLUS_H
 
+#include "types.h"
+
 #include <rclcpp/rclcpp.hpp>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -25,8 +27,8 @@
 #include <cluster_predict/EA_disk.h>
 #include <cluster_predict/voxel_cluster.h>
 
-typedef pcl::PointXYZINormal PointType;
-typedef std::vector<pcl::PointCloud<PointType>> VoxelMap;
+#include "types.h"
+
 #define HASH_length     10000
 
 struct bbox_t
@@ -98,7 +100,7 @@ public:
     bool ground_estimate(const pcl::PointCloud<PointType> &ground_pcl, const Eigen::Vector3f &world_z, Eigen::Vector3f &ground_norm, Eigen::Vector4f &ground_plane, pcl::PointCloud<PointType> &true_ground, std::unordered_set<int> &extend_pixels);
     void ground_remove(const Eigen::Vector4f &ground_plane, pcl::PointCloud<PointType> &cluster_pcl, std::vector<int> &cluster_pcl_ind, std::vector<int> &dyn_tag, pcl::PointCloud<PointType> &true_ground, std::vector<Point_Cloud> &umap);
     void isolate_remove(pcl::PointCloud<PointType> &cluster_pcl, std::vector<int> &cluster_pcl_ind, std::vector<int> &dyn_tag);
-    void oobb_estimate(const VoxelMap &vmap, const pcl::PointCloud<PointType> &points, Eigen::Vector3f &min_point_obj,\
+    void oobb_estimate(const std::vector<PointCloudXYZI> &vmap, const pcl::PointCloud<PointType> &points, Eigen::Vector3f &min_point_obj,\
                        Eigen::Vector3f &max_point_obj, Eigen::Matrix3f &R, const Eigen::Vector3f ground_norm);
     void event_extend(const Eigen::Matrix3f &R, bool ground_detect, bbox_t &bbox, std::vector<int> &dyn_tag, const int &bbox_index);
     bool esti_plane(Eigen::Vector4f &pca_result, const pcl::PointCloud<PointType> &point);

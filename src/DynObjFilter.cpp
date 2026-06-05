@@ -1,8 +1,20 @@
+#include <pcl/impl/pcl_base.hpp>
+#include <pcl/kdtree/impl/kdtree_flann.hpp>
+#include <pcl/search/impl/kdtree.hpp>
+#include <pcl/filters/impl/voxel_grid.hpp>
+
 #include <iostream>
 #include <vector>
 #include <random>
 #include <m-detector/DynObjFilter.h>
 #include <fins/node.hpp>
+
+// 显式实例化
+template class pcl::PCLBase<CustomPointType>;
+template class pcl::search::KdTree<CustomPointType>;
+template class pcl::PointCloud<CustomPointType>;
+template class pcl::KdTreeFLANN<CustomPointType>;
+template class pcl::VoxelGrid<CustomPointType>; // 建议也加上这个，因为你代码里用到了 VoxelGrid
 
 #define PI_MATH  (3.14159f)
 
@@ -248,7 +260,7 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
     {   
         p[i].reset();     
         V3D p_body(feats_undistort->points[i].x, feats_undistort->points[i].y, feats_undistort->points[i].z);
-        int intensity = feats_undistort->points[i].curvature;
+        int intensity = feats_undistort->points[i].custom_curvature;
         V3D p_glob(rot_end * (p_body) + pos_end);
         p[i].glob = p_glob;        
         p[i].dyn = STATIC;
@@ -308,17 +320,17 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
         switch(points[i]->dyn)
         {
             case CASE1:
-                po.normal_x = 1;
+                po.dyn_flag = 1;
                 laserCloudDynObj->push_back(po);
                 laserCloudDynObj_world->push_back(po_w);
                 break;
             case CASE2:
-                po.normal_y = points[i]->occu_times;
+                po.occu_times = points[i]->occu_times;
                 laserCloudDynObj->push_back(po);
                 laserCloudDynObj_world->push_back(po_w);
                 break;
             case CASE3:
-                po.normal_z = points[i]->is_occu_times;
+                po.is_occu_times = points[i]->is_occu_times;
                 laserCloudDynObj->push_back(po);
                 laserCloudDynObj_world->push_back(po_w);
                 break;
@@ -338,7 +350,7 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
             po.x = points[i]->glob(0);
             po.y = points[i]->glob(1);
             po.z = points[i]->glob(2);
-            po.curvature = i;
+            po.custom_curvature = i;
             switch (points[i]->dyn)
             {   
                 case CASE1:               
@@ -347,18 +359,18 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
                         points[i]->dyn = STATIC;
                         points[i]->occu_times = -1;
                         points[i]->is_occu_times = -1;
-                        po.normal_x = 0;
-                        po.normal_y = points[i]->is_occu_times;
-                        po.normal_z = points[i]->occu_times;
+                        po.dyn_flag = 0;
+                        po.is_occu_times = points[i]->is_occu_times;
+                        po.occu_times = points[i]->occu_times;
                         po.intensity = (int) (points[i]->local.norm() * 10) + 10;
                         laserCloudSteadObj_clus->push_back(po);
                         num_neag += 1;
                     }
                     else
                     {
-                        po.normal_x = 1;
-                        po.normal_y = points[i]->is_occu_times;
-                        po.normal_z = points[i]->occu_times;
+                        po.dyn_flag = 1;
+                        po.is_occu_times = points[i]->is_occu_times;
+                        po.occu_times = points[i]->occu_times;
                         laserCloudDynObj_clus->push_back(po);
                         if(!dyn_filter_en)
                         {
@@ -368,23 +380,23 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
                     }
                     break;               
                 case CASE2:
-                    if(dyn_tag_cluster[i] == 0)
-                    {
-                        points[i]->dyn = STATIC;
-                        points[i]->occu_times = -1;
-                        points[i]->is_occu_times = -1;
-                        po.normal_x = 0;
-                        po.normal_y = points[i]->is_occu_times;
-                        po.normal_z = points[i]->occu_times;
+                if(dyn_tag_cluster[i] == 0)
+                {
+                    points[i]->dyn = STATIC;
+                    points[i]->occu_times = -1;
+                    points[i]->is_occu_times = -1;
+                    po.dyn_flag = 0;
+                        po.is_occu_times = points[i]->is_occu_times;
+                        po.occu_times = points[i]->occu_times;
                         po.intensity = (int) (points[i]->local.norm() * 10) + 10;
                         laserCloudSteadObj_clus->push_back(po);
                         num_neag += 1;
                     }
                     else
                     {
-                        po.normal_x = 0;
-                        po.normal_y = points[i]->is_occu_times;
-                        po.normal_z = points[i]->occu_times;
+                        po.dyn_flag = 0;
+                        po.is_occu_times = points[i]->is_occu_times;
+                        po.occu_times = points[i]->occu_times;
                         laserCloudDynObj_clus->push_back(po);
                         if(!dyn_filter_en)
                         {
@@ -394,23 +406,23 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
                     }
                     break;
                 case CASE3:
-                    if(dyn_tag_cluster[i] == 0)
-                    {
-                        points[i]->dyn = STATIC;
-                        points[i]->occu_times = -1;
-                        points[i]->is_occu_times = -1;
-                        po.normal_x = 0;
-                        po.normal_y = points[i]->is_occu_times;
-                        po.normal_z = points[i]->occu_times;
+                if(dyn_tag_cluster[i] == 0)
+                {
+                    points[i]->dyn = STATIC;
+                    points[i]->occu_times = -1;
+                    points[i]->is_occu_times = -1;
+                    po.dyn_flag = 0;
+                        po.is_occu_times = points[i]->is_occu_times;
+                        po.occu_times = points[i]->occu_times;
                         po.intensity = (int) (points[i]->local.norm() * 10) + 10;
                         laserCloudSteadObj_clus->push_back(po);
                         num_neag += 1;
                     }
                     else
                     {
-                        po.normal_x = 0;
-                        po.normal_y = points[i]->is_occu_times;
-                        po.normal_z = points[i]->occu_times;
+                        po.dyn_flag = 0;
+                        po.is_occu_times = points[i]->is_occu_times;
+                        po.occu_times = points[i]->occu_times;
                         laserCloudDynObj_clus->push_back(po);
                         if(!dyn_filter_en)
                         {
@@ -425,9 +437,9 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
                         points[i]->dyn = CASE1;
                         points[i]->occu_times = -1;
                         points[i]->is_occu_times = -1;
-                        po.normal_x = 0;
-                        po.normal_y = points[i]->is_occu_times;
-                        po.normal_z = points[i]->occu_times;
+                        po.dyn_flag = 0;
+                        po.is_occu_times = points[i]->is_occu_times;
+                        po.occu_times = points[i]->occu_times;
                         laserCloudDynObj_clus->push_back(po);
                         if(!dyn_filter_en)
                         {
@@ -437,9 +449,9 @@ void  DynObjFilter::filter(PointCloudXYZI::Ptr feats_undistort, const M3D & rot_
                     }
                     else
                     {
-                        po.normal_x = 0;
-                        po.normal_y = points[i]->is_occu_times;
-                        po.normal_z = points[i]->occu_times;
+                        po.dyn_flag = 0;
+                        po.is_occu_times = points[i]->is_occu_times;
+                        po.occu_times = points[i]->occu_times;
                         po.intensity = (int) (points[i]->local.norm() * 10) + 10;
                         laserCloudSteadObj_clus->push_back(po);
                         num_neag += 1;
@@ -586,10 +598,10 @@ void  DynObjFilter::Buffer2DepthMap(double cur_time)
                     po.y = point->glob(1);
                     po.z = point->glob(2);
                     po.intensity = point->local(2);
-                    po.curvature = point->local(1);
-                    po.normal_x = point->hor_ind;
-                    po.normal_y = point->ver_ind;
-                    po.normal_z = point->dyn;
+                    po.custom_curvature = point->local(1);
+                    po.hor_ind = point->hor_ind;
+                    po.ver_ind = point->ver_ind;
+                    po.dyn_flag = point->dyn;
                     if(point->dyn == STATIC) laserCloudSteadObj_hist->push_back(po);
                 }
             }

@@ -269,7 +269,7 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
         else if (umap[voxel].points_num > 0 && umap[voxel].bbox_index > -1)
         {
             auto tmp = raw_point[ite];
-            tmp.curvature = ite;
+            tmp.custom_curvature = ite;
             bbox.Point_cloud[umap[voxel].bbox_index].push_back(tmp);
             bbox.Point_indices[umap[voxel].bbox_index].push_back(ite);
             umap[voxel].cloud->push_back(tmp);
@@ -278,7 +278,7 @@ void DynObjCluster::PubClusterResult_voxel(std::vector<int> &dyn_tag, std_msgs::
         else if (umap_insidebox[voxel].bbox_index > -1)
         {
             auto tmp = raw_point[ite];
-            tmp.curvature = ite;
+            tmp.custom_curvature = ite;
             bbox.Point_cloud[umap_insidebox[voxel].bbox_index].push_back(tmp);
             bbox.Point_indices[umap_insidebox[voxel].bbox_index].push_back(ite);
             if (umap_insidebox[voxel].points_num == 0)
@@ -521,7 +521,7 @@ void DynObjCluster::isolate_remove(pcl::PointCloud<PointType> &cluster_pcl, std:
     cluster_pcl_ind = new_cluster_pcl_ind;
 }
 
-void DynObjCluster::oobb_estimate(const VoxelMap &vmap, const pcl::PointCloud<PointType> &points, Eigen::Vector3f &min_point_obj,
+void DynObjCluster::oobb_estimate(const std::vector<PointCloudXYZI> &vmap, const pcl::PointCloud<PointType> &points, Eigen::Vector3f &min_point_obj,
                                   Eigen::Vector3f &max_point_obj, Eigen::Matrix3f &R, const Eigen::Vector3f ground_norm)
 {
     int NMATCH = 5;

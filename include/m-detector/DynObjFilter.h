@@ -35,7 +35,7 @@
 
 using namespace std;
 using namespace Eigen;
-using namespace cv;
+// using namespace cv;
 
 /*** For dynamic object filtering ***/
 #define PI_MATH (3.141593f)
@@ -169,6 +169,34 @@ struct point_soph
         is_distort = cur.is_distort;
         cur_vec = cur.cur_vec;
         last_closest = cur.last_closest;
+    };
+
+    point_soph& operator=(const point_soph& other) {
+        if (this != &other) {
+            vec = other.vec;
+            hor_ind  = other.hor_ind;
+            ver_ind  = other.ver_ind;
+            position  = other.position;
+            time = other.time;
+            occu_times = other.occu_times;
+            is_occu_times = other.is_occu_times;
+            occu_index = other.occu_index;
+            is_occu_index = other.is_occu_index;
+            occ_vec = other.occ_vec;
+            is_occ_vec = other.is_occ_vec;
+            transl = other.transl;
+            glob = other.glob;
+            rot = other.rot;
+            dyn = other.dyn;
+            last_depth_interps = other.last_depth_interps;
+            last_vecs = other.last_vecs;
+            last_positions = other.last_positions;
+            local = other.local;
+            is_distort = other.is_distort;
+            cur_vec = other.cur_vec;
+            last_closest = other.last_closest;
+        }
+        return *this;
     };
 
     ~point_soph(){

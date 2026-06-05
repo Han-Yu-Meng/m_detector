@@ -7,7 +7,36 @@
 
 
 
-typedef pcl::PointXYZINormal PointType;
+// Define a custom point type that includes the necessary fields
+struct CustomPointType
+{
+    PCL_ADD_POINT4D; 
+
+    float intensity;
+    int occu_times;
+    int is_occu_times;
+    int hor_ind;
+    int ver_ind;
+    int dyn_flag; // Renamed from 'dyn' to avoid potential conflicts
+    float custom_curvature; // Renamed from 'curvature' for clarity
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW // make sure our new point type is aligned
+} ;
+
+POINT_CLOUD_REGISTER_POINT_STRUCT (CustomPointType,
+    (float, x, x)
+    (float, y, y)
+    (float, z, z)
+    (float, intensity, intensity)
+    (int, occu_times, occu_times)
+    (int, is_occu_times, is_occu_times)
+    (int, hor_ind, hor_ind)
+    (int, ver_ind, ver_ind)
+    (int, dyn_flag, dyn_flag)
+    (float, custom_curvature, custom_curvature)
+)
+
+typedef CustomPointType PointType;
 typedef pcl::PointCloud<PointType> PointCloudXYZI;
 typedef std::vector<PointType, Eigen::aligned_allocator<PointType>>  PointVector;
 typedef Eigen::Vector2f V2F;

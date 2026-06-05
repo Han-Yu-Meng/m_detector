@@ -1,13 +1,15 @@
-#ifndef VOXEL_CLUSTER_H
-#define VOXEL_CLUSTER_H
+#pragma once
+
+#include "types.h"
 
 #include <rclcpp/rclcpp.hpp>
 #include <Eigen/Core>
 #include <unordered_map>
 #include <unordered_set>
 #include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
+#include <pcl/point_types.h> // Keep this for PCL_ADD_POINTTYPE4D, etc.
 #define HASH_length     10000
+
 class VOXEL {
 public:
     int64_t x, y, z;
@@ -19,7 +21,6 @@ public:
         return (this->x == other.x && this->y == other.y && this->z == other.z);
     }
 };
-typedef pcl::PointXYZINormal PointType;
 
 struct Point_Cloud {
     typedef std::shared_ptr<Point_Cloud> Ptr;
@@ -107,7 +108,6 @@ template <> struct hash<VOXEL> {
 class VOXEL_CLUSTER
 {
 public:
-    typedef pcl::PointXYZINormal PointType;
     std::vector<int> voxel_list;
     std::unordered_set<int> voxel_set;
 
@@ -254,7 +254,7 @@ public:
     void extract(std::vector<std::vector<int>> &voxel_clusters)
     {   
         for (int voxel_ind = 0; voxel_ind < voxel_list.size(); voxel_ind++)
-        {   
+        {
             int voxel_cur = voxel_list[voxel_ind];
             if (voxel_set.count(voxel_cur))
             {
@@ -287,9 +287,7 @@ protected:
     float Grid_edge_size_xy;
     float Grid_edge_size_z;
     Eigen::Vector3f xyz_origin;
-    std::vector<Point_Cloud> umap;
     int max_range;
     int min_cluster_voxels_;
+    pcl::PointCloud<PointType> clusters_;
 };
-
-#endif
